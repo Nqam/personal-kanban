@@ -3,14 +3,16 @@ package com.personalkanban.app.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,22 +22,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,7 +58,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun QuickAddBottomSheet(
     customers: List<Customer>,
@@ -72,7 +74,11 @@ fun QuickAddBottomSheet(
         keepOpen: Boolean
     ) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Prevent accidental swipe-down dismissal; user closes explicitly via X button or Back
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden }
+    )
     val focusRequester = remember { FocusRequester() }
 
     var title by remember { mutableStateOf("") }
@@ -83,12 +89,12 @@ fun QuickAddBottomSheet(
     var customerName by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
 
+    var showPriorityRow by remember { mutableStateOf(false) }
+    var showStatusRow by remember { mutableStateOf(false) }
     var showCustomerField by remember { mutableStateOf(false) }
     var showCommentField by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-    var showPriorityMenu by remember { mutableStateOf(false) }
-    var showStatusMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -103,16 +109,30 @@ fun QuickAddBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        dragHandle = null,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
+                .padding(horizontal = 20.dp, vertical = 14.dp)
                 .imePadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Новая задача", style = MaterialTheme.typography.titleMedium)
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Закрыть")
+                }
+            }
+
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -137,21 +157,18 @@ fun QuickAddBottomSheet(
                     .focusRequester(focusRequester)
             )
 
-            // Quick action chips row
+            // Quick action chips row (inline toggles — never steal focus or hide keyboard)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Due date chip
                 FilterChip(
                     selected = dueAt != null,
                     onClick = { showDatePicker = true },
                     label = {
-                        Text(
-                            dueAt?.let { DateTimeFormatters.formatDueDate(it, hasTime) } ?: "Срок"
-                        )
+                        Text(dueAt?.let { DateTimeFormatters.formatDueDate(it, hasTime) } ?: "Срок")
                     },
                     leadingIcon = { Icon(Icons.Outlined.CalendarToday, null, Modifier.height(16.dp)) }
                 )
@@ -165,7 +182,6 @@ fun QuickAddBottomSheet(
                     )
                 }
 
-                // Today shortcut
                 FilterChip(
                     selected = false,
                     onClick = {
@@ -177,53 +193,25 @@ fun QuickAddBottomSheet(
                     label = { Text("Сегодня") }
                 )
 
-                // Priority dropdown
-                Box {
-                    FilterChip(
-                        selected = priority != TaskPriority.MEDIUM,
-                        onClick = { showPriorityMenu = true },
-                        label = { Text(priority.displayName) },
-                        leadingIcon = { Icon(Icons.Outlined.Flag, null, Modifier.height(16.dp)) }
-                    )
-                    DropdownMenu(
-                        expanded = showPriorityMenu,
-                        onDismissRequest = { showPriorityMenu = false }
-                    ) {
-                        TaskPriority.entries.forEach { p ->
-                            DropdownMenuItem(
-                                text = { Text(p.displayName) },
-                                onClick = {
-                                    priority = p
-                                    showPriorityMenu = false
-                                }
-                            )
-                        }
-                    }
-                }
+                FilterChip(
+                    selected = showPriorityRow || priority != TaskPriority.MEDIUM,
+                    onClick = {
+                        showPriorityRow = !showPriorityRow
+                        if (showPriorityRow) showStatusRow = false
+                    },
+                    label = { Text(priority.displayName) },
+                    leadingIcon = { Icon(Icons.Outlined.Flag, null, Modifier.height(16.dp)) }
+                )
 
-                // Status dropdown
-                Box {
-                    FilterChip(
-                        selected = status != TaskStatus.INBOX,
-                        onClick = { showStatusMenu = true },
-                        label = { Text(status.displayName) },
-                        leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null, Modifier.height(16.dp)) }
-                    )
-                    DropdownMenu(
-                        expanded = showStatusMenu,
-                        onDismissRequest = { showStatusMenu = false }
-                    ) {
-                        TaskStatus.entries.forEach { s ->
-                            DropdownMenuItem(
-                                text = { Text(s.displayName) },
-                                onClick = {
-                                    status = s
-                                    showStatusMenu = false
-                                }
-                            )
-                        }
-                    }
-                }
+                FilterChip(
+                    selected = showStatusRow || status != TaskStatus.INBOX,
+                    onClick = {
+                        showStatusRow = !showStatusRow
+                        if (showStatusRow) showPriorityRow = false
+                    },
+                    label = { Text(status.displayName) },
+                    leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null, Modifier.height(16.dp)) }
+                )
 
                 FilterChip(
                     selected = showCustomerField || customerName.isNotBlank(),
@@ -238,6 +226,42 @@ fun QuickAddBottomSheet(
                     label = { Text("Комментарий") },
                     leadingIcon = { Icon(Icons.Outlined.ChatBubbleOutline, null, Modifier.height(16.dp)) }
                 )
+            }
+
+            AnimatedVisibility(visible = showPriorityRow) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TaskPriority.entries.forEach { p ->
+                        FilterChip(
+                            selected = priority == p,
+                            onClick = {
+                                priority = p
+                                showPriorityRow = false
+                            },
+                            label = { Text(p.displayName) }
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = showStatusRow) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TaskStatus.entries.forEach { s ->
+                        FilterChip(
+                            selected = status == s,
+                            onClick = {
+                                status = s
+                                showStatusRow = false
+                            },
+                            label = { Text(s.displayName) }
+                        )
+                    }
+                }
             }
 
             AnimatedVisibility(visible = showCustomerField) {

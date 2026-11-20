@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -143,6 +144,8 @@ fun MainScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var activeConflict by remember { mutableStateOf<SyncConflict?>(null) }
     var inlineTaskTitle by remember { mutableStateOf("") }
+    var pendingCompleteTask by remember { mutableStateOf<com.personalkanban.app.domain.model.TaskItem?>(null) }
+    var pendingDeleteTask by remember { mutableStateOf<com.personalkanban.app.domain.model.TaskItem?>(null) }
 
     LaunchedEffect(initialQuickAdd) {
         if (initialQuickAdd) {
@@ -180,7 +183,8 @@ fun MainScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp)
+                    .statusBarsPadding()
+                    .padding(top = 6.dp)
             ) {
                 // Header row
                 Row(
@@ -501,8 +505,8 @@ fun MainScreen(
                                     isSelected = task.id in state.selectedTaskIds,
                                     onClick = { onOpenTask(task.id) },
                                     onToggleSelect = { viewModel.toggleSelection(task.id) },
-                                    onSwipeComplete = { viewModel.completeTask(task) },
-                                    onSwipeDelete = { viewModel.deleteTask(task) },
+                                    onSwipeComplete = { pendingCompleteTask = task },
+                                    onSwipeDelete = { pendingDeleteTask = task },
                                     onChangeStatus = { newStatus -> viewModel.changeTaskStatus(task.id, newStatus) },
                                     onDuplicate = { viewModel.duplicateTask(task.id) },
                                     onArchive = { viewModel.archiveTask(task) }
@@ -546,6 +550,48 @@ fun MainScreen(
                 activeConflict = null
             },
             onDismiss = { activeConflict = null }
+        )
+    }
+
+    pendingCompleteTask?.let { task ->
+        AlertDialog(
+            onDismissRequest = { pendingCompleteTask = null },
+            title = { Text("Завершить задачу?") },
+            text = { Text("Отметить «${task.title}» как выполненную?") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.completeTask(task)
+                    pendingCompleteTask = null
+                }) {
+                    Text("Завершить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCompleteTask = null }) {
+                    Text("Отмена")
+                }
+            }
+        )
+    }
+
+    pendingDeleteTask?.let { task ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteTask = null },
+            title = { Text("Удалить задачу?") },
+            text = { Text("Переместить «${task.title}» в корзину?") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.deleteTask(task)
+                    pendingDeleteTask = null
+                }) {
+                    Text("В корзину")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteTask = null }) {
+                    Text("Отмена")
+                }
+            }
         )
     }
 

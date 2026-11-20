@@ -97,7 +97,8 @@ fun TaskCard(
                 }
                 SwipeToDismissBoxValue.Settled -> false
             }
-        }
+        },
+        positionalThreshold = { totalDistance -> totalDistance * 0.55f }
     )
 
     Box(modifier = modifier.fillMaxWidth()) {
