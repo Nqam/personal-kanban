@@ -60,6 +60,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -232,13 +233,9 @@ fun MainScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Personal Kanban",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
                             text = DateTimeFormatters.formatHeaderDate(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
 
@@ -298,7 +295,7 @@ fun MainScreen(
                     )
                 }
 
-                // View tabs
+                // View tabs with status-matched accent colors
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -307,10 +304,34 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TaskViewTab.entries.forEach { tab ->
+                        val tabColor = when (tab) {
+                            TaskViewTab.ALL -> MaterialTheme.colorScheme.primary
+                            TaskViewTab.INBOX -> TaskStatus.INBOX.accentColor(isDark)
+                            TaskViewTab.TODAY -> TaskStatus.PLANNED.accentColor(isDark)
+                            TaskViewTab.UPCOMING -> TaskStatus.WAITING.accentColor(isDark)
+                            TaskViewTab.OVERDUE -> MaterialTheme.colorScheme.error
+                            TaskViewTab.IN_PROGRESS -> TaskStatus.IN_PROGRESS.accentColor(isDark)
+                            TaskViewTab.DONE -> TaskStatus.DONE.accentColor(isDark)
+                        }
+                        val isSelected = state.filterState.selectedTab == tab
                         FilterChip(
-                            selected = state.filterState.selectedTab == tab,
+                            selected = isSelected,
                             onClick = { viewModel.selectTab(tab) },
-                            label = { Text(tab.displayName) }
+                            label = { Text(tab.displayName) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = tabColor.copy(alpha = 0.08f),
+                                labelColor = tabColor,
+                                selectedContainerColor = tabColor.copy(alpha = 0.22f),
+                                selectedLabelColor = tabColor
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = tabColor.copy(alpha = 0.30f),
+                                selectedBorderColor = tabColor,
+                                borderWidth = 1.dp,
+                                selectedBorderWidth = 1.5.dp
+                            )
                         )
                     }
                 }
