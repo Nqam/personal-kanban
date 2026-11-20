@@ -1,5 +1,6 @@
 package com.personalkanban.app.ui.main
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -9,6 +10,7 @@ import com.google.android.gms.common.api.ApiException
 import com.personalkanban.app.data.local.SettingsDataStore
 import com.personalkanban.app.data.remote.GitHubUpdateService
 import com.personalkanban.app.data.remote.GoogleDriveService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.personalkanban.app.data.repository.ConflictResolutionChoice
 import com.personalkanban.app.data.repository.SyncRepository
 import com.personalkanban.app.data.repository.TaskRepository
@@ -55,7 +57,8 @@ data class MainUiState(
     val conflicts: List<SyncConflict> = emptyList(),
     val unsyncedCount: Int = 0,
     val availableUpdate: ReleaseInfo? = null,
-    val showDriveOnboarding: Boolean = false
+    val showDriveOnboarding: Boolean = false,
+    val backupFileUri: String? = null
 )
 
 sealed class MainUiEvent {
@@ -65,6 +68,7 @@ sealed class MainUiEvent {
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val taskRepository: TaskRepository,
     private val syncRepository: SyncRepository,
     private val settingsDataStore: SettingsDataStore,
@@ -136,7 +140,8 @@ class MainViewModel @Inject constructor(
             conflicts = conflicts,
             unsyncedCount = unsyncedCount,
             availableUpdate = update,
-            showDriveOnboarding = !promptDismissed && settings.googleAccountEmail == null && backupFileUri.isNullOrBlank()
+            showDriveOnboarding = !promptDismissed && settings.googleAccountEmail == null && backupFileUri.isNullOrBlank(),
+            backupFileUri = backupFileUri
         )
     }.stateIn(
         scope = viewModelScope,
@@ -305,6 +310,17 @@ class MainViewModel @Inject constructor(
 
     fun syncNow() {
         viewModelScope.launch {
+            val currentUri = uiState.value.backupFileUri
+            if (!currentUri.isNullOrBlank()) {
+                taskRepository.writeBackupToSafUri(Uri.parse(currentUri))
+                    .onSuccess {
+                        _events.emit(MainUiEvent.ShowMessage("Дамп сохранён в Google Диск"))
+                    }
+                    .onFailure { err ->
+                        _events.emit(MainUiEvent.ShowMessage("Ошибка сохранения дампа: ${err.localizedMessage}"))
+                    }
+                return@launch
+            }
             val result = syncRepository.syncNow(createSnapshot = false)
             result.onSuccess { conflictsCount ->
                 val msg = if (conflictsCount > 0) {
@@ -315,6 +331,25 @@ class MainViewModel @Inject constructor(
                 _events.emit(MainUiEvent.ShowMessage(msg))
             }.onFailure { err ->
                 _events.emit(MainUiEvent.ShowMessage(err.message ?: "Ошибка синхронизации"))
+            }
+        }
+    }
+
+    fun restoreFromSafUri(uri: Uri) {
+        viewModelScope.launch {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    ?: error("Не удалось прочитать файл дампа")
+            }.onSuccess { rawJson ->
+                taskRepository.importFromJson(rawJson)
+                    .onSuccess { count ->
+                        _events.emit(MainUiEvent.ShowMessage("Восстановлено задач из дампа: $count"))
+                    }
+                    .onFailure { err ->
+                        _events.emit(MainUiEvent.ShowMessage("Ошибка формата дампа: ${err.localizedMessage}"))
+                    }
+            }.onFailure { err ->
+                _events.emit(MainUiEvent.ShowMessage("Ошибка чтения файла: ${err.localizedMessage}"))
             }
         }
     }

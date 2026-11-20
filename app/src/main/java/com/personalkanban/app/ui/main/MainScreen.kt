@@ -133,6 +133,14 @@ fun MainScreen(
         }
     }
 
+    val openBackupDocLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.restoreFromSafUri(uri)
+        }
+    }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -146,6 +154,7 @@ fun MainScreen(
     var inlineTaskTitle by remember { mutableStateOf("") }
     var pendingCompleteTask by remember { mutableStateOf<com.personalkanban.app.domain.model.TaskItem?>(null) }
     var pendingDeleteTask by remember { mutableStateOf<com.personalkanban.app.domain.model.TaskItem?>(null) }
+    var showDumpDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialQuickAdd) {
         if (initialQuickAdd) {
@@ -209,13 +218,7 @@ fun MainScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SyncStatusChip(
                             status = state.settings.lastSyncStatus,
-                            onClick = {
-                                if (state.settings.googleAccountEmail == null) {
-                                    onOpenSettings()
-                                } else {
-                                    viewModel.syncNow()
-                                }
-                            }
+                            onClick = { showDumpDialog = true }
                         )
                         IconButton(onClick = { showSearch = !showSearch }) {
                             Icon(Icons.Outlined.Search, contentDescription = "Поиск")
@@ -595,6 +598,69 @@ fun MainScreen(
         )
     }
 
+    if (showDumpDialog) {
+        AlertDialog(
+            onDismissRequest = { showDumpDialog = false },
+            title = { Text("Резервная копия (Google Диск)") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (!state.backupFileUri.isNullOrBlank()) {
+                            "Файл дампа привязан и обновляется автоматически после изменений."
+                        } else {
+                            "Выберите файл в Google Диске для сохранения или восстановления дампа задач (без настройки Google Cloud)."
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (!state.backupFileUri.isNullOrBlank()) {
+                        Button(
+                            onClick = {
+                                showDumpDialog = false
+                                viewModel.syncNow()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Сохранить дамп сейчас")
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            showDumpDialog = false
+                            createBackupDocLauncher.launch("personal_kanban_backup.json")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            if (state.backupFileUri.isNullOrBlank()) {
+                                "Создать дамп в Google Диск"
+                            } else {
+                                "Выбрать другой файл дампа"
+                            }
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            showDumpDialog = false
+                            openBackupDocLauncher.launch(arrayOf("application/json", "*/*"))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Скачать / восстановить дамп из Google Диска")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDumpDialog = false }) {
+                    Text("Закрыть")
+                }
+            }
+        )
+    }
+
     if (state.showDriveOnboarding) {
         AlertDialog(
             onDismissRequest = viewModel::dismissDriveOnboarding,
@@ -602,7 +668,7 @@ fun MainScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Выберите способ автоматического сохранения задач в Google Drive. Настройка нужна только один раз — дальше копии будут обновляться сами.",
+                        text = "Создайте файл дампа в Google Диске один раз — все задачи будут сохраняться туда автоматически. Или загрузите существующий дамп.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Button(
@@ -610,14 +676,17 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Выбрать файл в Google Drive (без Google Cloud)")
+                        Text("Создать дамп в Google Диск")
                     }
                     OutlinedButton(
-                        onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
+                        onClick = {
+                            viewModel.dismissDriveOnboarding()
+                            openBackupDocLauncher.launch(arrayOf("application/json", "*/*"))
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Подключить Google-аккаунт (OAuth)")
+                        Text("Загрузить дамп из Google Диска")
                     }
                 }
             },
