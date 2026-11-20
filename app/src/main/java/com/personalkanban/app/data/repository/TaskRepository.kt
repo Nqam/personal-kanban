@@ -1,6 +1,8 @@
 package com.personalkanban.app.data.repository
 
 import android.content.Context
+import android.net.Uri
+import androidx.work.WorkManager
 import com.personalkanban.app.BuildConfig
 import com.personalkanban.app.data.local.CommentDao
 import com.personalkanban.app.data.local.CustomerDao
@@ -20,9 +22,11 @@ import com.personalkanban.app.domain.model.TaskPriority
 import com.personalkanban.app.domain.model.TaskStatus
 import com.personalkanban.app.notification.ReminderScheduler
 import com.personalkanban.app.widget.KanbanWidgetProvider
+import com.personalkanban.app.worker.DriveSyncWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
@@ -40,6 +44,7 @@ class TaskRepository @Inject constructor(
     private val customerDao: CustomerDao,
     private val settingsDataStore: SettingsDataStore,
     private val reminderScheduler: ReminderScheduler,
+    private val workManager: WorkManager,
     private val json: Json
 ) {
     fun observeActiveTasks(): Flow<List<TaskItem>> = combine(
@@ -427,6 +432,22 @@ class TaskRepository @Inject constructor(
         val settings = settingsDataStore.getSettings()
         if (settings.googleAccountEmail != null && settings.lastSyncStatus != SyncStatusType.SYNCING) {
             settingsDataStore.updateSyncState(SyncStatusType.UNSYNCED)
+            DriveSyncWorker.scheduleDebouncedSync(workManager)
         }
+        val backupUriStr = settingsDataStore.backupFileUriFlow.first()
+        if (!backupUriStr.isNullOrBlank()) {
+            writeBackupToSafUri(Uri.parse(backupUriStr))
+        }
+    }
+
+    suspend fun writeBackupToSafUri(uri: Uri): Result<Unit> = runCatching {
+        val content = exportToJson()
+        context.contentResolver.openOutputStream(uri, "wt")?.use { out ->
+            out.write(content.toByteArray(Charsets.UTF_8))
+        } ?: error("Не удалось открыть файл резервной копии")
+        settingsDataStore.updateSyncState(
+            SyncStatusType.SYNCED,
+            lastSyncAt = System.currentTimeMillis()
+        )
     }
 }

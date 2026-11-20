@@ -6,7 +6,9 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -45,6 +47,7 @@ class DriveSyncWorker @AssistedInject constructor(
 
     companion object {
         private const val UNIQUE_PERIODIC_WORK = "periodic_drive_sync"
+        private const val UNIQUE_DEBOUNCED_WORK = "debounced_drive_sync"
 
         fun schedulePeriodic(workManager: WorkManager) {
             val constraints = Constraints.Builder()
@@ -60,6 +63,24 @@ class DriveSyncWorker @AssistedInject constructor(
             workManager.enqueueUniquePeriodicWork(
                 UNIQUE_PERIODIC_WORK,
                 ExistingPeriodicWorkPolicy.KEEP,
+                request
+            )
+        }
+
+        fun scheduleDebouncedSync(workManager: WorkManager) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val request = OneTimeWorkRequestBuilder<DriveSyncWorker>()
+                .setInitialDelay(30, TimeUnit.SECONDS)
+                .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 2, TimeUnit.MINUTES)
+                .build()
+
+            workManager.enqueueUniqueWork(
+                UNIQUE_DEBOUNCED_WORK,
+                ExistingWorkPolicy.REPLACE,
                 request
             )
         }

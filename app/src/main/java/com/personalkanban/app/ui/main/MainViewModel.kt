@@ -1,9 +1,14 @@
 package com.personalkanban.app.ui.main
 
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 import com.personalkanban.app.data.local.SettingsDataStore
 import com.personalkanban.app.data.remote.GitHubUpdateService
+import com.personalkanban.app.data.remote.GoogleDriveService
 import com.personalkanban.app.data.repository.ConflictResolutionChoice
 import com.personalkanban.app.data.repository.SyncRepository
 import com.personalkanban.app.data.repository.TaskRepository
@@ -49,7 +54,8 @@ data class MainUiState(
     val selectedTaskIds: Set<String> = emptySet(),
     val conflicts: List<SyncConflict> = emptyList(),
     val unsyncedCount: Int = 0,
-    val availableUpdate: ReleaseInfo? = null
+    val availableUpdate: ReleaseInfo? = null,
+    val showDriveOnboarding: Boolean = false
 )
 
 sealed class MainUiEvent {
@@ -62,7 +68,8 @@ class MainViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val syncRepository: SyncRepository,
     private val settingsDataStore: SettingsDataStore,
-    private val gitHubUpdateService: GitHubUpdateService
+    private val gitHubUpdateService: GitHubUpdateService,
+    private val googleDriveService: GoogleDriveService
 ) : ViewModel() {
 
     private val filterFlow = MutableStateFlow(TaskFilterState())
@@ -82,7 +89,9 @@ class MainViewModel @Inject constructor(
         selectedIdsFlow,
         syncRepository.observeUnresolvedConflicts(),
         taskRepository.observeUnsyncedCount(),
-        availableUpdateFlow
+        availableUpdateFlow,
+        settingsDataStore.drivePromptDismissedFlow,
+        settingsDataStore.backupFileUriFlow
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val tasks = values[0] as List<TaskItem>
@@ -100,6 +109,8 @@ class MainViewModel @Inject constructor(
         val conflicts = values[7] as List<SyncConflict>
         val unsyncedCount = values[8] as Int
         val update = values[9] as ReleaseInfo?
+        val promptDismissed = values[10] as Boolean
+        val backupFileUri = values[11] as String?
 
         val now = System.currentTimeMillis()
         val stats = MainStats(
@@ -124,7 +135,8 @@ class MainViewModel @Inject constructor(
             selectedTaskIds = selectedIds,
             conflicts = conflicts,
             unsyncedCount = unsyncedCount,
-            availableUpdate = update
+            availableUpdate = update,
+            showDriveOnboarding = !promptDismissed && settings.googleAccountEmail == null && backupFileUri.isNullOrBlank()
         )
     }.stateIn(
         scope = viewModelScope,
@@ -311,6 +323,50 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             syncRepository.resolveConflict(conflict, choice)
             _events.emit(MainUiEvent.ShowMessage("Конфликт разрешён"))
+        }
+    }
+
+    fun dismissDriveOnboarding() {
+        viewModelScope.launch {
+            settingsDataStore.setDrivePromptDismissed(true)
+        }
+    }
+
+    fun bindSafBackupUri(uri: Uri) {
+        viewModelScope.launch {
+            settingsDataStore.setBackupFileUri(uri.toString())
+            settingsDataStore.setDrivePromptDismissed(true)
+            taskRepository.writeBackupToSafUri(uri)
+                .onSuccess {
+                    _events.emit(MainUiEvent.ShowMessage("Файл резервной копии привязан. Автосохранение включено!"))
+                }
+                .onFailure { err ->
+                    _events.emit(MainUiEvent.ShowMessage("Ошибка записи копии: ${err.localizedMessage}"))
+                }
+        }
+    }
+
+    fun getGoogleSignInIntent(): Intent = googleDriveService.getSignInIntent()
+
+    fun handleGoogleSignInResult(data: Intent?) {
+        viewModelScope.launch {
+            try {
+                val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+                val account = task.getResult(ApiException::class.java)
+                val email = account.email
+                if (email.isNullOrBlank()) {
+                    _events.emit(MainUiEvent.ShowMessage("Не удалось получить email Google-аккаунта"))
+                } else {
+                    settingsDataStore.setGoogleAccount(email)
+                    settingsDataStore.setDrivePromptDismissed(true)
+                    _events.emit(MainUiEvent.ShowMessage("Подключён аккаунт $email"))
+                    syncNow()
+                }
+            } catch (e: ApiException) {
+                _events.emit(MainUiEvent.ShowMessage("Ошибка входа Google (код ${e.statusCode})"))
+            } catch (e: Exception) {
+                _events.emit(MainUiEvent.ShowMessage(e.localizedMessage ?: "Ошибка входа Google"))
+            }
         }
     }
 }

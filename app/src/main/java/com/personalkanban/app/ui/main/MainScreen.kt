@@ -1,6 +1,10 @@
 package com.personalkanban.app.ui.main
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -112,6 +116,27 @@ fun MainScreen(
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val createBackupDocLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            viewModel.bindSafBackupUri(uri)
+        }
+    }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.handleGoogleSignInResult(result.data)
+    }
 
     var showSearch by remember { mutableStateOf(false) }
     var showQuickAddSheet by remember { mutableStateOf(false) }
@@ -521,6 +546,41 @@ fun MainScreen(
                 activeConflict = null
             },
             onDismiss = { activeConflict = null }
+        )
+    }
+
+    if (state.showDriveOnboarding) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDriveOnboarding,
+            title = { Text("Резервное копирование") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Выберите способ автоматического сохранения задач в Google Drive. Настройка нужна только один раз — дальше копии будут обновляться сами.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(
+                        onClick = { createBackupDocLauncher.launch("personal_kanban_backup.json") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Выбрать файл в Google Drive (без Google Cloud)")
+                    }
+                    OutlinedButton(
+                        onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Подключить Google-аккаунт (OAuth)")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissDriveOnboarding) {
+                    Text("Позже (локально)")
+                }
+            }
         )
     }
 }

@@ -38,6 +38,8 @@ class SettingsDataStore @Inject constructor(
         val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
         val DRIVE_FOLDER_ID = stringPreferencesKey("drive_folder_id")
         val COLLAPSED_STATUSES = stringSetPreferencesKey("collapsed_statuses")
+        val DRIVE_PROMPT_DISMISSED = booleanPreferencesKey("drive_prompt_dismissed")
+        val BACKUP_FILE_URI = stringPreferencesKey("backup_file_uri")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -74,6 +76,14 @@ class SettingsDataStore @Inject constructor(
 
     val collapsedStatusesFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[Keys.COLLAPSED_STATUSES] ?: emptySet()
+    }
+
+    val drivePromptDismissedFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[Keys.DRIVE_PROMPT_DISMISSED] ?: false
+    }
+
+    val backupFileUriFlow: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[Keys.BACKUP_FILE_URI]
     }
 
     suspend fun getSettings(): AppSettings = settingsFlow.first()
@@ -154,6 +164,17 @@ class SettingsDataStore @Inject constructor(
             } else {
                 current + statusName
             }
+        }
+    }
+
+    suspend fun setDrivePromptDismissed(dismissed: Boolean) {
+        context.dataStore.edit { it[Keys.DRIVE_PROMPT_DISMISSED] = dismissed }
+    }
+
+    suspend fun setBackupFileUri(uri: String?) {
+        context.dataStore.edit { prefs ->
+            if (uri == null) prefs.remove(Keys.BACKUP_FILE_URI)
+            else prefs[Keys.BACKUP_FILE_URI] = uri
         }
     }
 }
