@@ -1,5 +1,9 @@
 # История изменений (Changelog)
 
+## [1.0.7] - 2026-11-20
+### Улучшено
+- При восстановлении дампа через системный проводник Android передаётся `DocumentsContract.EXTRA_INITIAL_URI` на провайдер Google Диска (`com.google.android.apps.docs.storage`), чтобы проводник открывался сразу в Google Диске.
+
 ## [1.0.6] - 2026-11-20
 ### Исправлено и улучшено
 - В `AndroidManifest.xml` добавлена секция `<queries>` для `com.google.android.apps.docs` (обязательно для Android 11+ при прямой отправке дампа в Google Диск).

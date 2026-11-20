@@ -101,6 +101,7 @@ import com.personalkanban.app.domain.model.TaskPriority
 import com.personalkanban.app.domain.model.TaskStatus
 import com.personalkanban.app.domain.model.TaskViewTab
 import com.personalkanban.app.ui.components.DateTimeFormatters
+import com.personalkanban.app.ui.components.OpenGoogleDriveDocument
 import com.personalkanban.app.ui.components.QuickAddBottomSheet
 import com.personalkanban.app.ui.components.TaskCard
 import com.personalkanban.app.ui.theme.accentColor
@@ -135,7 +136,7 @@ fun MainScreen(
     }
 
     val openBackupDocLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
+        contract = OpenGoogleDriveDocument()
     ) { uri ->
         if (uri != null) {
             viewModel.restoreFromSafUri(uri)

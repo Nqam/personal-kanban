@@ -67,6 +67,7 @@ import com.personalkanban.app.BuildConfig
 import com.personalkanban.app.domain.model.ReminderPresets
 import com.personalkanban.app.domain.model.ThemeMode
 import com.personalkanban.app.ui.components.DateTimeFormatters
+import com.personalkanban.app.ui.components.OpenGoogleDriveDocument
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -98,7 +99,7 @@ fun SettingsScreen(
     }
 
     val importDumpLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
+        contract = OpenGoogleDriveDocument()
     ) { uri ->
         if (uri != null) {
             viewModel.restoreFromDumpUri(uri)
