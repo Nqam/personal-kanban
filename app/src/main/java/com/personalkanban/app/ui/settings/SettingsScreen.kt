@@ -97,6 +97,14 @@ fun SettingsScreen(
         viewModel.setNotificationsEnabled(granted)
     }
 
+    val importDumpLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.restoreFromDumpUri(uri)
+        }
+    }
+
     val importJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -118,6 +126,27 @@ fun SettingsScreen(
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(Intent.createChooser(intent, event.title))
+                }
+                is SettingsEvent.SendDumpToDrive -> {
+                    val uri = viewModel.createFileUri(event.file)
+                    val driveIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "Personal Kanban Backup")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        setPackage("com.google.android.apps.docs")
+                    }
+                    if (driveIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(driveIntent)
+                    } else {
+                        val fallback = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, "Personal Kanban Backup")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(fallback, "Сохранить дамп в Google Диск"))
+                    }
                 }
                 is SettingsEvent.InstallApk -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
@@ -319,13 +348,28 @@ fun SettingsScreen(
 
             if (state.settings.googleAccountEmail == null) {
                 Button(
-                    onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
+                    onClick = viewModel::sendDumpToGoogleDrive,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Outlined.CloudSync, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Подключить Google Drive")
+                    Text("Сохранить дамп в Google Диск")
+                }
+                OutlinedButton(
+                    onClick = { importDumpLauncher.launch(arrayOf("application/json", "*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Outlined.CloudDownload, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Загрузить дамп из Google Диска")
+                }
+                TextButton(
+                    onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("OAuth-синхронизация (требует настройки SHA-1 в Google Cloud)")
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

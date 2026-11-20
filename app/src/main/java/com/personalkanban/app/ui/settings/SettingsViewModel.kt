@@ -46,6 +46,7 @@ data class SettingsUiState(
 sealed class SettingsEvent {
     data class ShowMessage(val message: String) : SettingsEvent()
     data class ShareFile(val file: File, val mimeType: String, val title: String) : SettingsEvent()
+    data class SendDumpToDrive(val file: File) : SettingsEvent()
     data class InstallApk(val file: File) : SettingsEvent()
 }
 
@@ -261,6 +262,37 @@ class SettingsViewModel @Inject constructor(
                         _events.emit(SettingsEvent.ShowMessage(state.message))
                     }
                 }
+            }
+        }
+    }
+
+    fun sendDumpToGoogleDrive() {
+        viewModelScope.launch {
+            runCatching {
+                taskRepository.createDumpFileForShare()
+            }.onSuccess { file ->
+                _events.emit(SettingsEvent.SendDumpToDrive(file))
+            }.onFailure { err ->
+                _events.emit(SettingsEvent.ShowMessage("Ошибка подготовки дампа: ${err.localizedMessage}"))
+            }
+        }
+    }
+
+    fun restoreFromDumpUri(uri: android.net.Uri) {
+        viewModelScope.launch {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    ?: error("Не удалось прочитать файл дампа")
+            }.onSuccess { rawJson ->
+                taskRepository.importFromJson(rawJson)
+                    .onSuccess { count ->
+                        _events.emit(SettingsEvent.ShowMessage("Восстановлено задач из дампа: $count"))
+                    }
+                    .onFailure { err ->
+                        _events.emit(SettingsEvent.ShowMessage("Ошибка формата дампа: ${err.localizedMessage}"))
+                    }
+            }.onFailure { err ->
+                _events.emit(SettingsEvent.ShowMessage("Ошибка чтения файла: ${err.localizedMessage}"))
             }
         }
     }
