@@ -1,0 +1,89 @@
+name: Android Build & Release
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Тег релиза (например, v1.0.0) для публикации в GitHub Releases'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Decode Release Keystore (if configured)
+        id: keystore
+        if: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > ${{ runner.temp }}/release.keystore
+          echo "path=${{ runner.temp }}/release.keystore" >> $GITHUB_OUTPUT
+
+      - name: Build Release APK
+        env:
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Build Debug APK (fallback if unsigned)
+        if: ${{ steps.keystore.outputs.path == '' }}
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare APK and SHA-256 checksum
+        id: artifacts
+        run: |
+          mkdir -p dist
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            cp app/build/outputs/apk/release/app-release.apk dist/PersonalKanban-release.apk
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk dist/PersonalKanban-release.apk
+          fi
+          sha256sum dist/PersonalKanban-release.apk | awk '{print $1}' > dist/PersonalKanban-release.apk.sha256
+          ls -lh dist/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PersonalKanban-APK
+          path: dist/*
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
+          name: "Personal Kanban ${{ github.event.inputs.release_tag || github.ref_name }}"
+          generate_release_notes: true
+          files: |
+            dist/PersonalKanban-release.apk
+            dist/PersonalKanban-release.apk.sha256
