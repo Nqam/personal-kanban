@@ -64,6 +64,7 @@ data class MainUiState(
 sealed class MainUiEvent {
     data class ShowUndoSnackbar(val message: String, val onUndo: suspend () -> Unit) : MainUiEvent()
     data class ShowMessage(val message: String) : MainUiEvent()
+    data class SendDumpToDrive(val file: java.io.File) : MainUiEvent()
 }
 
 @HiltViewModel
@@ -331,6 +332,19 @@ class MainViewModel @Inject constructor(
                 _events.emit(MainUiEvent.ShowMessage(msg))
             }.onFailure { err ->
                 _events.emit(MainUiEvent.ShowMessage(err.message ?: "Ошибка синхронизации"))
+            }
+        }
+    }
+
+    fun sendDumpToGoogleDrive() {
+        viewModelScope.launch {
+            runCatching {
+                taskRepository.createDumpFileForShare()
+            }.onSuccess { file ->
+                settingsDataStore.setDrivePromptDismissed(true)
+                _events.emit(MainUiEvent.SendDumpToDrive(file))
+            }.onFailure { err ->
+                _events.emit(MainUiEvent.ShowMessage("Ошибка подготовки дампа: ${err.localizedMessage}"))
             }
         }
     }

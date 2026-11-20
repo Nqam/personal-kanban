@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -177,6 +178,31 @@ fun MainScreen(
                     )
                     if (result == SnackbarResult.ActionPerformed) {
                         scope.launch { event.onUndo() }
+                    }
+                }
+                is MainUiEvent.SendDumpToDrive -> {
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        event.file
+                    )
+                    val driveIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "Personal Kanban Backup")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        setPackage("com.google.android.apps.docs")
+                    }
+                    if (driveIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(driveIntent)
+                    } else {
+                        val fallback = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, "Personal Kanban Backup")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(fallback, "Сохранить дамп в Google Диск"))
                     }
                 }
             }
@@ -605,40 +631,18 @@ fun MainScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = if (!state.backupFileUri.isNullOrBlank()) {
-                            "Файл дампа привязан и обновляется автоматически после изменений."
-                        } else {
-                            "Выберите файл в Google Диске для сохранения или восстановления дампа задач (без настройки Google Cloud)."
-                        },
+                        text = "Отправьте дамп напрямую в приложение Google Диск или выберите файл дампа для восстановления.",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    if (!state.backupFileUri.isNullOrBlank()) {
-                        Button(
-                            onClick = {
-                                showDumpDialog = false
-                                viewModel.syncNow()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Сохранить дамп сейчас")
-                        }
-                    }
                     Button(
                         onClick = {
                             showDumpDialog = false
-                            createBackupDocLauncher.launch("personal_kanban_backup.json")
+                            viewModel.sendDumpToGoogleDrive()
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(
-                            if (state.backupFileUri.isNullOrBlank()) {
-                                "Создать дамп в Google Диск"
-                            } else {
-                                "Выбрать другой файл дампа"
-                            }
-                        )
+                        Text("Сохранить дамп в Google Диск")
                     }
                     OutlinedButton(
                         onClick = {
@@ -648,7 +652,16 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Скачать / восстановить дамп из Google Диска")
+                        Text("Скачать / восстановить дамп")
+                    }
+                    TextButton(
+                        onClick = {
+                            showDumpDialog = false
+                            createBackupDocLauncher.launch("personal_kanban_backup.json")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Привязать локальный авто-файл")
                     }
                 }
             },
@@ -668,15 +681,15 @@ fun MainScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Создайте файл дампа в Google Диске один раз — все задачи будут сохраняться туда автоматически. Или загрузите существующий дамп.",
+                        text = "Вы можете сразу сохранить дамп в Google Диск через штатное приложение Google Диск или загрузить существующий дамп.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Button(
-                        onClick = { createBackupDocLauncher.launch("personal_kanban_backup.json") },
+                        onClick = { viewModel.sendDumpToGoogleDrive() },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Создать дамп в Google Диск")
+                        Text("Сохранить дамп в Google Диск")
                     }
                     OutlinedButton(
                         onClick = {

@@ -356,6 +356,14 @@ class TaskRepository @Inject constructor(
         return json.encodeToString(BackupPayload.serializer(), payload)
     }
 
+    suspend fun createDumpFileForShare(): java.io.File {
+        val content = exportToJson()
+        val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = java.io.File(dir, "personal_kanban_backup.json")
+        file.writeText(content, Charsets.UTF_8)
+        return file
+    }
+
     suspend fun exportToCsv(): String {
         val tasks = taskDao.getAllTasksIncludingDeleted()
             .map { it.toDomain() }
