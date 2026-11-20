@@ -61,6 +61,16 @@ enum class SyncStatusType(val displayName: String) {
     OFFLINE("Нет подключения к интернету")
 }
 
+@Serializable
+data class TaskAttachment(
+    val id: String,
+    val displayName: String,
+    val mimeType: String,
+    val localPath: String,
+    val sizeBytes: Long,
+    val addedAt: Long
+)
+
 data class TaskItem(
     val id: String,
     val title: String,
@@ -81,7 +91,8 @@ data class TaskItem(
     val isArchived: Boolean = false,
     val isDeleted: Boolean = false,
     val deletedAt: Long? = null,
-    val commentCount: Int = 0
+    val commentCount: Int = 0,
+    val attachments: List<TaskAttachment> = emptyList()
 )
 
 data class TaskComment(

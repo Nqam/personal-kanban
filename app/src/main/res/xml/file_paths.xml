@@ -3,4 +3,5 @@
     <cache-path name="updates" path="updates/" />
     <cache-path name="exports" path="exports/" />
     <files-path name="backups" path="backups/" />
+    <files-path name="attachments" path="attachments/" />
 </paths>

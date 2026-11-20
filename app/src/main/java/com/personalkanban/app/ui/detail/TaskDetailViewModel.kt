@@ -1,5 +1,6 @@
 package com.personalkanban.app.ui.detail
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -62,6 +63,18 @@ class TaskDetailViewModel @Inject constructor(
     fun deleteComment(commentId: String) {
         viewModelScope.launch {
             taskRepository.deleteComment(commentId)
+        }
+    }
+
+    fun addAttachment(uri: Uri) {
+        viewModelScope.launch {
+            taskRepository.addAttachment(taskId, uri)
+        }
+    }
+
+    fun removeAttachment(attachmentId: String) {
+        viewModelScope.launch {
+            taskRepository.removeAttachment(taskId, attachmentId)
         }
     }
 

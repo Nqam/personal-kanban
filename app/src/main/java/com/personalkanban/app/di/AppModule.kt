@@ -45,7 +45,8 @@ object AppModule {
             context,
             PersonalKanbanDatabase::class.java,
             "personal_kanban.db"
-        ).build()
+        ).addMigrations(PersonalKanbanDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideTaskDao(db: PersonalKanbanDatabase): TaskDao = db.taskDao()

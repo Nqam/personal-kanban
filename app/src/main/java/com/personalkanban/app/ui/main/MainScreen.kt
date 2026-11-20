@@ -574,8 +574,8 @@ fun MainScreen(
         QuickAddBottomSheet(
             customers = state.customers,
             onDismiss = { showQuickAddSheet = false },
-            onCreateTask = { title, status, priority, dueAt, hasTime, customer, comment, keepOpen ->
-                viewModel.createTask(title, status, priority, dueAt, hasTime, customer, comment)
+            onCreateTask = { title, status, priority, dueAt, hasTime, customer, comment, attachmentUris, keepOpen ->
+                viewModel.createTask(title, status, priority, dueAt, hasTime, customer, comment, attachmentUris)
                 if (!keepOpen) {
                     showQuickAddSheet = false
                 }

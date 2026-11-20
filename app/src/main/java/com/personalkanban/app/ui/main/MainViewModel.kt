@@ -210,7 +210,8 @@ class MainViewModel @Inject constructor(
         dueAt: Long?,
         hasTime: Boolean,
         customerName: String?,
-        comment: String?
+        comment: String?,
+        attachmentUris: List<Uri> = emptyList()
     ) {
         viewModelScope.launch {
             taskRepository.createTask(
@@ -220,7 +221,8 @@ class MainViewModel @Inject constructor(
                 dueAt = dueAt,
                 hasTime = hasTime,
                 customerName = customerName,
-                initialComment = comment
+                initialComment = comment,
+                attachmentUris = attachmentUris
             )
         }
     }

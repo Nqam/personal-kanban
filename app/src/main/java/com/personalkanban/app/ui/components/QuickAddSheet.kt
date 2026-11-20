@@ -1,5 +1,9 @@
 package com.personalkanban.app.ui.components
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -20,10 +24,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.SwapHoriz
@@ -71,6 +77,7 @@ fun QuickAddBottomSheet(
         hasTime: Boolean,
         customerName: String?,
         comment: String?,
+        attachmentUris: List<Uri>,
         keepOpen: Boolean
     ) -> Unit
 ) {
@@ -88,6 +95,19 @@ fun QuickAddBottomSheet(
     var hasTime by remember { mutableStateOf(false) }
     var customerName by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
+    var attachmentUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+
+    val pickPhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) attachmentUris = attachmentUris + uri
+    }
+
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) attachmentUris = attachmentUris + uri
+    }
 
     var showPriorityRow by remember { mutableStateOf(false) }
     var showStatusRow by remember { mutableStateOf(false) }
@@ -103,6 +123,7 @@ fun QuickAddBottomSheet(
     fun resetForNext() {
         title = ""
         comment = ""
+        attachmentUris = emptyList()
         focusRequester.requestFocus()
     }
 
@@ -147,6 +168,7 @@ fun QuickAddBottomSheet(
                                 title, status, priority, dueAt, hasTime,
                                 customerName.takeIf { it.isNotBlank() },
                                 comment.takeIf { it.isNotBlank() },
+                                attachmentUris,
                                 false
                             )
                         }
@@ -225,6 +247,28 @@ fun QuickAddBottomSheet(
                     onClick = { showCommentField = !showCommentField },
                     label = { Text("Комментарий") },
                     leadingIcon = { Icon(Icons.Outlined.ChatBubbleOutline, null, Modifier.height(16.dp)) }
+                )
+
+                FilterChip(
+                    selected = false,
+                    onClick = {
+                        pickPhotoLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    label = { Text("+ Фото") },
+                    leadingIcon = { Icon(Icons.Outlined.Image, null, Modifier.height(16.dp)) }
+                )
+
+                FilterChip(
+                    selected = attachmentUris.isNotEmpty(),
+                    onClick = { pickFileLauncher.launch(arrayOf("*/*")) },
+                    label = {
+                        Text(
+                            if (attachmentUris.isEmpty()) "+ Файл" else "Файлов: ${attachmentUris.size}"
+                        )
+                    },
+                    leadingIcon = { Icon(Icons.Outlined.AttachFile, null, Modifier.height(16.dp)) }
                 )
             }
 
@@ -322,6 +366,7 @@ fun QuickAddBottomSheet(
                                 title, status, priority, dueAt, hasTime,
                                 customerName.takeIf { it.isNotBlank() },
                                 comment.takeIf { it.isNotBlank() },
+                                attachmentUris,
                                 true
                             )
                             resetForNext()
@@ -343,6 +388,7 @@ fun QuickAddBottomSheet(
                                 title, status, priority, dueAt, hasTime,
                                 customerName.takeIf { it.isNotBlank() },
                                 comment.takeIf { it.isNotBlank() },
+                                attachmentUris,
                                 false
                             )
                         }

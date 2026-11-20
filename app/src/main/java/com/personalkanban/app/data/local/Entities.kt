@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.personalkanban.app.domain.model.Customer
 import com.personalkanban.app.domain.model.SyncConflict
+import com.personalkanban.app.domain.model.TaskAttachment
 import com.personalkanban.app.domain.model.TaskComment
 import com.personalkanban.app.domain.model.TaskItem
 import com.personalkanban.app.domain.model.TaskPriority
@@ -42,7 +43,8 @@ data class TaskEntity(
     val version: Long,
     val isArchived: Boolean,
     val isDeleted: Boolean,
-    val deletedAt: Long?
+    val deletedAt: Long?,
+    val attachmentsJson: String = "[]"
 )
 
 @Entity(
@@ -114,7 +116,8 @@ data class TaskSnapshotDto(
     val version: Long = 1L,
     val isArchived: Boolean = false,
     val isDeleted: Boolean = false,
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val attachments: List<TaskAttachment> = emptyList()
 )
 
 fun TaskItem.toSnapshotDto(): TaskSnapshotDto = TaskSnapshotDto(
@@ -136,7 +139,8 @@ fun TaskItem.toSnapshotDto(): TaskSnapshotDto = TaskSnapshotDto(
     version = version,
     isArchived = isArchived,
     isDeleted = isDeleted,
-    deletedAt = deletedAt
+    deletedAt = deletedAt,
+    attachments = attachments
 )
 
 fun TaskSnapshotDto.toDomain(commentCount: Int = 0): TaskItem = TaskItem(
@@ -159,12 +163,16 @@ fun TaskSnapshotDto.toDomain(commentCount: Int = 0): TaskItem = TaskItem(
     isArchived = isArchived,
     isDeleted = isDeleted,
     deletedAt = deletedAt,
-    commentCount = commentCount
+    commentCount = commentCount,
+    attachments = attachments
 )
 
 fun TaskEntity.toDomain(commentCount: Int = 0): TaskItem {
     val parsedLabels = runCatching {
         internalJson.decodeFromString<List<String>>(labelsJson)
+    }.getOrDefault(emptyList())
+    val parsedAttachments = runCatching {
+        internalJson.decodeFromString<List<TaskAttachment>>(attachmentsJson)
     }.getOrDefault(emptyList())
     return TaskItem(
         id = id,
@@ -186,7 +194,8 @@ fun TaskEntity.toDomain(commentCount: Int = 0): TaskItem {
         isArchived = isArchived,
         isDeleted = isDeleted,
         deletedAt = deletedAt,
-        commentCount = commentCount
+        commentCount = commentCount,
+        attachments = parsedAttachments
     )
 }
 
@@ -209,7 +218,8 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     version = version,
     isArchived = isArchived,
     isDeleted = isDeleted,
-    deletedAt = deletedAt
+    deletedAt = deletedAt,
+    attachmentsJson = internalJson.encodeToString(attachments)
 )
 
 fun CommentEntity.toDomain(): TaskComment = TaskComment(

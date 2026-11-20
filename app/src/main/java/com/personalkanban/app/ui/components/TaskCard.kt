@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -337,6 +338,16 @@ fun TaskCard(
                                 MetaPill(
                                     text = "${task.commentCount}",
                                     icon = Icons.Outlined.ChatBubbleOutline,
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    textColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // Attachments count
+                            if (task.attachments.isNotEmpty()) {
+                                MetaPill(
+                                    text = "${task.attachments.size}",
+                                    icon = Icons.Outlined.AttachFile,
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                     textColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

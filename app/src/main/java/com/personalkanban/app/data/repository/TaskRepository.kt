@@ -2,6 +2,7 @@ package com.personalkanban.app.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.work.WorkManager
 import com.personalkanban.app.BuildConfig
 import com.personalkanban.app.data.local.CommentDao
@@ -16,6 +17,7 @@ import com.personalkanban.app.data.remote.toBackupDto
 import com.personalkanban.app.data.remote.toDomain
 import com.personalkanban.app.domain.model.Customer
 import com.personalkanban.app.domain.model.SyncStatusType
+import com.personalkanban.app.domain.model.TaskAttachment
 import com.personalkanban.app.domain.model.TaskComment
 import com.personalkanban.app.domain.model.TaskItem
 import com.personalkanban.app.domain.model.TaskPriority
@@ -87,14 +89,17 @@ class TaskRepository @Inject constructor(
         customerName: String? = null,
         labels: List<String> = emptyList(),
         reminderEnabled: Boolean = true,
-        initialComment: String? = null
+        initialComment: String? = null,
+        attachmentUris: List<Uri> = emptyList()
     ): TaskItem {
         val now = System.currentTimeMillis()
         val trimmedCustomer = customerName?.trim()?.takeIf { it.isNotEmpty() }
         val customerId = trimmedCustomer?.let { ensureCustomerExists(it, now) }
+        val taskId = UUID.randomUUID().toString()
+        val savedAttachments = attachmentUris.mapNotNull { copyUriToAttachment(taskId, it, now) }
 
         val task = TaskItem(
-            id = UUID.randomUUID().toString(),
+            id = taskId,
             title = title.trim(),
             description = description.trim(),
             status = status,
@@ -109,7 +114,8 @@ class TaskRepository @Inject constructor(
             updatedAt = now,
             completedAt = if (status == TaskStatus.DONE) now else null,
             lastSyncedAt = 0L,
-            version = 1L
+            version = 1L,
+            attachments = savedAttachments
         )
         taskDao.upsertTask(task.toEntity())
 
@@ -411,6 +417,69 @@ class TaskRepository @Inject constructor(
         markLocalDirty()
         KanbanWidgetProvider.requestUpdate(context)
         payload.tasks.size
+    }
+
+    suspend fun addAttachment(taskId: String, uri: Uri): TaskAttachment? {
+        val existing = taskDao.getTaskById(taskId)?.toDomain() ?: return null
+        val now = System.currentTimeMillis()
+        val attachment = copyUriToAttachment(taskId, uri, now) ?: return null
+        val updated = existing.copy(
+            attachments = existing.attachments + attachment,
+            updatedAt = now,
+            version = existing.version + 1
+        )
+        taskDao.upsertTask(updated.toEntity())
+        markLocalDirty()
+        return attachment
+    }
+
+    suspend fun removeAttachment(taskId: String, attachmentId: String) {
+        val existing = taskDao.getTaskById(taskId)?.toDomain() ?: return
+        val target = existing.attachments.firstOrNull { it.id == attachmentId } ?: return
+        runCatching { java.io.File(target.localPath).delete() }
+        val now = System.currentTimeMillis()
+        val updated = existing.copy(
+            attachments = existing.attachments.filterNot { it.id == attachmentId },
+            updatedAt = now,
+            version = existing.version + 1
+        )
+        taskDao.upsertTask(updated.toEntity())
+        markLocalDirty()
+    }
+
+    private fun copyUriToAttachment(taskId: String, uri: Uri, now: Long): TaskAttachment? {
+        return runCatching {
+            val cr = context.contentResolver
+            val mimeType = cr.getType(uri) ?: "application/octet-stream"
+            var displayName = "attachment_${now}"
+            cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) {
+                        cursor.getString(idx)?.takeIf { it.isNotBlank() }?.let { displayName = it }
+                    }
+                }
+            }
+            val safeName = displayName.replace(Regex("[^a-zA-Zа-яА-Я0-9._-]"), "_")
+            val attId = UUID.randomUUID().toString()
+            val dir = java.io.File(context.filesDir, "attachments/$taskId").apply { mkdirs() }
+            val destFile = java.io.File(dir, "${attId}_$safeName")
+
+            cr.openInputStream(uri)?.use { input ->
+                destFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return@runCatching null
+
+            TaskAttachment(
+                id = attId,
+                displayName = displayName,
+                mimeType = mimeType,
+                localPath = destFile.absolutePath,
+                sizeBytes = destFile.length(),
+                addedAt = now
+            )
+        }.getOrNull()
     }
 
     private suspend fun ensureCustomerExists(name: String, now: Long): String {
