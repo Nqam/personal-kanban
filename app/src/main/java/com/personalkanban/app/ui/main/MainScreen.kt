@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -247,8 +248,20 @@ fun MainScreen(
                         IconButton(onClick = { showSearch = !showSearch }) {
                             Icon(Icons.Outlined.Search, contentDescription = "Поиск")
                         }
+                        val hasActiveFilters = state.filterState.statuses.isNotEmpty() ||
+                            state.filterState.priorities.isNotEmpty() ||
+                            state.filterState.customerName != null ||
+                            state.filterState.epicName != null ||
+                            state.filterState.dueDateFilter != DueDateFilter.ALL ||
+                            state.filterState.onlyOverdue ||
+                            state.filterState.onlyWithComments ||
+                            state.filterState.selectedLabel != null
                         IconButton(onClick = { showFilterSheet = true }) {
-                            Icon(Icons.Outlined.FilterList, contentDescription = "Фильтры")
+                            Icon(
+                                Icons.Outlined.FilterList,
+                                contentDescription = "Фильтры",
+                                tint = if (hasActiveFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
                         }
                         IconButton(onClick = onOpenSettings) {
                             Icon(Icons.Outlined.Settings, contentDescription = "Настройки")
@@ -869,6 +882,7 @@ private fun FilterSortBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)

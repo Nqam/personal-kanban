@@ -115,4 +115,29 @@ class TaskFilterEngineTest {
         )
         assertEquals(listOf("2", "1"), res.map { it.id })
     }
+
+    @Test
+    fun `all statuses and view tabs including WAITING and PLANNED filter consistently`() {
+        val inbox = task("1", status = TaskStatus.INBOX)
+        val planned = task("2", status = TaskStatus.PLANNED)
+        val inProgress = task("3", status = TaskStatus.IN_PROGRESS)
+        val waiting = task("4", status = TaskStatus.WAITING)
+        val done = task("5", status = TaskStatus.DONE)
+        val all = listOf(inbox, planned, inProgress, waiting, done)
+
+        assertEquals(listOf("1"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.INBOX), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("2"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.PLANNED), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("3"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.IN_PROGRESS), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("4"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.WAITING), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("5"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.DONE), emptyMap(), now, zone).map { it.id })
+
+        val multiStatus = TaskFilterEngine.filterAndSort(
+            all,
+            TaskFilterState(statuses = setOf(TaskStatus.WAITING, TaskStatus.PLANNED)),
+            emptyMap(),
+            now,
+            zone
+        )
+        assertEquals(setOf("2", "4"), multiStatus.map { it.id }.toSet())
+    }
 }
