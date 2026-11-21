@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Personal Kanban</string>
-    <string name="widget_name">Personal Kanban — Задачи</string>
+    <string name="app_name">TaskFlow</string>
+    <string name="widget_name">TaskFlow — Задачи</string>
     <string name="widget_description">Быстрый просмотр задач на сегодня и добавление новой задачи</string>
 </resources>
