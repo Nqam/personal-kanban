@@ -140,4 +140,16 @@ class TaskFilterEngineTest {
         )
         assertEquals(setOf("2", "4"), multiStatus.map { it.id }.toSet())
     }
+
+    @Test
+    fun `overdue triggers on next day when no time set or after exact time when time set`() {
+        val lateTonight = LocalDate.of(2026, 11, 20).atTime(23, 0).atZone(zone).toInstant().toEpochMilli()
+        val sameDayNoTime = task("1", dueAt = now, status = TaskStatus.PLANNED).copy(hasTime = false)
+        val sameDayPastTime = task("2", dueAt = now, status = TaskStatus.PLANNED).copy(hasTime = true)
+        val yesterdayNoTime = task("3", dueAt = yesterday, status = TaskStatus.PLANNED).copy(hasTime = false)
+
+        assertFalse(TaskFilterEngine.isOverdue(sameDayNoTime, lateTonight, zone))
+        assertTrue(TaskFilterEngine.isOverdue(sameDayPastTime, lateTonight, zone))
+        assertTrue(TaskFilterEngine.isOverdue(yesterdayNoTime, lateTonight, zone))
+    }
 }

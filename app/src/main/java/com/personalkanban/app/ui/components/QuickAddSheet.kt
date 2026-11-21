@@ -214,9 +214,7 @@ fun QuickAddBottomSheet(
                 FilterChip(
                     selected = false,
                     onClick = {
-                        val todayEnd = LocalDate.now().atTime(LocalTime.of(18, 0))
-                            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                        dueAt = todayEnd
+                        dueAt = DateTimeFormatters.endOfDayMillis(System.currentTimeMillis())
                         hasTime = false
                     },
                     label = { Text("Сегодня") }

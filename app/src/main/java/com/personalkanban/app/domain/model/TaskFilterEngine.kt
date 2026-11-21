@@ -6,9 +6,20 @@ import java.time.ZoneId
 
 object TaskFilterEngine {
 
-    fun isOverdue(task: TaskItem, nowMillis: Long = System.currentTimeMillis()): Boolean {
+    fun isOverdue(
+        task: TaskItem,
+        nowMillis: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): Boolean {
         val due = task.dueAt ?: return false
-        return task.status != TaskStatus.DONE && due < nowMillis
+        if (task.status == TaskStatus.DONE) return false
+        return if (task.hasTime) {
+            due < nowMillis
+        } else {
+            val today = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
+            val dueDate = Instant.ofEpochMilli(due).atZone(zoneId).toLocalDate()
+            dueDate.isBefore(today)
+        }
     }
 
     fun isDueToday(
@@ -75,7 +86,7 @@ object TaskFilterEngine {
             }
             .filter { task -> matchesDueFilter(task, filter.dueDateFilter, nowMillis, zoneId) }
             .filter { task ->
-                if (!filter.onlyOverdue) true else isOverdue(task, nowMillis)
+                if (!filter.onlyOverdue) true else isOverdue(task, nowMillis, zoneId)
             }
             .filter { task ->
                 if (!filter.onlyWithComments) true else task.commentCount > 0
@@ -115,9 +126,15 @@ object TaskFilterEngine {
         TaskViewTab.TODAY -> isDueToday(task, nowMillis, zoneId) && task.status != TaskStatus.DONE
         TaskViewTab.UPCOMING -> {
             val due = task.dueAt
-            due != null && !isDueToday(task, nowMillis, zoneId) && due > nowMillis && task.status != TaskStatus.DONE
+            if (due == null || task.status == TaskStatus.DONE) {
+                false
+            } else {
+                val today = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
+                val dueDate = Instant.ofEpochMilli(due).atZone(zoneId).toLocalDate()
+                dueDate.isAfter(today)
+            }
         }
-        TaskViewTab.OVERDUE -> isOverdue(task, nowMillis)
+        TaskViewTab.OVERDUE -> isOverdue(task, nowMillis, zoneId)
         TaskViewTab.IN_PROGRESS -> task.status == TaskStatus.IN_PROGRESS
         TaskViewTab.WAITING -> task.status == TaskStatus.WAITING
         TaskViewTab.DONE -> task.status == TaskStatus.DONE
@@ -133,7 +150,7 @@ object TaskFilterEngine {
         DueDateFilter.TODAY -> isDueToday(task, nowMillis, zoneId)
         DueDateFilter.TOMORROW -> isDueTomorrow(task, nowMillis, zoneId)
         DueDateFilter.THIS_WEEK -> isDueThisWeek(task, nowMillis, zoneId)
-        DueDateFilter.OVERDUE -> isOverdue(task, nowMillis)
+        DueDateFilter.OVERDUE -> isOverdue(task, nowMillis, zoneId)
         DueDateFilter.NO_DATE -> task.dueAt == null
     }
 

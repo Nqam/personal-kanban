@@ -82,7 +82,7 @@ fun TaskCard(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val isOverdue = remember(task.dueAt, task.status) { TaskFilterEngine.isOverdue(task) }
+    val isOverdue = remember(task.dueAt, task.hasTime, task.status) { TaskFilterEngine.isOverdue(task) }
     var showContextMenu by remember { mutableStateOf(false) }
 
     val dismissState = rememberSwipeToDismissBoxState(
