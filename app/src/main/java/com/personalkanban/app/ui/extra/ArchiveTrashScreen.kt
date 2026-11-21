@@ -40,6 +40,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personalkanban.app.data.repository.TaskRepository
 import com.personalkanban.app.domain.model.TaskItem
+import com.personalkanban.app.ui.components.DateTimeFormatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -83,7 +84,7 @@ fun ArchiveTrashScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Архив и корзина") },
+                title = { Text("Старые задачи и корзина") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад")
@@ -105,15 +106,24 @@ fun ArchiveTrashScreen(
                 .padding(padding)
         ) {
             TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Архив (${state.archived.size})") })
+                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Старые / Архив (${state.archived.size})") })
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Корзина (${state.deleted.size})") })
+            }
+
+            if (selectedTab == 0) {
+                Text(
+                    text = "Выполненные задачи автоматически перемещаются сюда через 7 дней после завершения.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
 
             val itemsList = if (selectedTab == 0) state.archived else state.deleted
             if (itemsList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (selectedTab == 0) "Архив пуст" else "Корзина пуста",
+                        text = if (selectedTab == 0) "Старых задач пока нет" else "Корзина пуста",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -136,8 +146,11 @@ fun ArchiveTrashScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(task.title, style = MaterialTheme.typography.titleSmall)
+                                    val completedSuffix = task.completedAt?.let {
+                                        " · Завершено ${DateTimeFormatters.formatTimestamp(it)}"
+                                    }.orEmpty()
                                     Text(
-                                        text = "${task.status.displayName} · ${task.priority.displayName}",
+                                        text = "${task.status.displayName} · ${task.priority.displayName}$completedSuffix",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

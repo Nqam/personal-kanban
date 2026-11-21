@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudOff
@@ -116,6 +117,7 @@ fun MainScreen(
     initialQuickAdd: Boolean,
     onConsumeInitialQuickAdd: () -> Unit,
     onOpenTask: (String) -> Unit,
+    onOpenArchiveTrash: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -262,6 +264,9 @@ fun MainScreen(
                                 contentDescription = "Фильтры",
                                 tint = if (hasActiveFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                        IconButton(onClick = onOpenArchiveTrash) {
+                            Icon(Icons.Outlined.Archive, contentDescription = "Старые задачи и корзина")
                         }
                         IconButton(onClick = onOpenSettings) {
                             Icon(Icons.Outlined.Settings, contentDescription = "Настройки")

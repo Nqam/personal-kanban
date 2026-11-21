@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
                             initialQuickAdd = pendingQuickAdd,
                             onConsumeInitialQuickAdd = { pendingQuickAdd = false },
                             onOpenTask = { id -> navController.navigate("task/$id") },
+                            onOpenArchiveTrash = { navController.navigate("archive_trash") },
                             onOpenSettings = { navController.navigate("settings") }
                         )
                     }

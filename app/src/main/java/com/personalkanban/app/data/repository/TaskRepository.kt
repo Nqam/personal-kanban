@@ -252,6 +252,35 @@ class TaskRepository @Inject constructor(
         KanbanWidgetProvider.requestUpdate(context)
     }
 
+    suspend fun autoArchiveOldCompletedTasks(
+        nowMillis: Long = System.currentTimeMillis(),
+        maxAgeDays: Long = 7L
+    ): Int {
+        val cutoff = nowMillis - java.util.concurrent.TimeUnit.DAYS.toMillis(maxAgeDays)
+        val candidates = taskDao.getAllTasksIncludingDeleted()
+            .map { it.toDomain() }
+            .filter { task ->
+                !task.isDeleted &&
+                    !task.isArchived &&
+                    task.status == TaskStatus.DONE &&
+                    (task.completedAt ?: task.updatedAt) <= cutoff
+            }
+        if (candidates.isEmpty()) return 0
+
+        val updatedEntities = candidates.map { task ->
+            task.copy(
+                isArchived = true,
+                updatedAt = nowMillis,
+                version = task.version + 1
+            ).toEntity()
+        }
+        taskDao.upsertTasks(updatedEntities)
+        candidates.forEach { reminderScheduler.cancelForTask(it.id) }
+        markLocalDirty()
+        KanbanWidgetProvider.requestUpdate(context)
+        return candidates.size
+    }
+
     suspend fun softDeleteTask(taskId: String) {
         val existing = taskDao.getTaskById(taskId)?.toDomain() ?: return
         val now = System.currentTimeMillis()

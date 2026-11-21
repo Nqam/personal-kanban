@@ -158,6 +158,7 @@ class MainViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            taskRepository.autoArchiveOldCompletedTasks()
             val settings = settingsDataStore.getSettings()
             if (settings.googleAccountEmail != null) {
                 syncRepository.syncNow(createSnapshot = false)
