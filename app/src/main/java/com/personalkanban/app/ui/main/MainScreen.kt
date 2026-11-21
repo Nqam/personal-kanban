@@ -351,6 +351,34 @@ fun MainScreen(
                     }
                 }
 
+                val hasAnyActiveFilter = state.filterState.statuses.isNotEmpty() ||
+                    state.filterState.priorities.isNotEmpty() ||
+                    state.filterState.customerName != null ||
+                    state.filterState.epicName != null ||
+                    state.filterState.dueDateFilter != DueDateFilter.ALL ||
+                    state.filterState.onlyOverdue ||
+                    state.filterState.onlyWithComments ||
+                    state.filterState.selectedLabel != null
+
+                if (hasAnyActiveFilter) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Применены дополнительные фильтры",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        TextButton(onClick = viewModel::clearFilters) {
+                            Text("Сбросить", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
                 // Update available banner
                 state.availableUpdate?.let { release ->
                     Surface(

@@ -138,7 +138,14 @@ fun TaskDetailScreen(
         if (uri != null) viewModel.addAttachment(uri)
     }
 
-    LaunchedEffect(task.title, task.description, task.customerName) {
+    fun currentDraftTask() = task.copy(
+        title = title.ifBlank { task.title },
+        description = description,
+        customerName = customerName.takeIf { it.isNotBlank() },
+        epicName = epicName.takeIf { it.isNotBlank() }
+    )
+
+    LaunchedEffect(task.title, task.description, task.customerName, task.epicName) {
         if (title != task.title && title.isEmpty()) title = task.title
         if (description != task.description && description.isEmpty()) description = task.description
     }
@@ -218,14 +225,7 @@ fun TaskDetailScreen(
                     FilterChip(
                         selected = task.status == s,
                         onClick = {
-                            viewModel.saveTask(
-                                task.copy(
-                                    title = title.ifBlank { task.title },
-                                    description = description,
-                                    customerName = customerName.takeIf { it.isNotBlank() },
-                                    status = s
-                                )
-                            )
+                            viewModel.saveTask(currentDraftTask().copy(status = s))
                         },
                         label = { Text(s.displayName) }
                     )
@@ -239,14 +239,7 @@ fun TaskDetailScreen(
                     FilterChip(
                         selected = task.priority == p,
                         onClick = {
-                            viewModel.saveTask(
-                                task.copy(
-                                    title = title.ifBlank { task.title },
-                                    description = description,
-                                    customerName = customerName.takeIf { it.isNotBlank() },
-                                    priority = p
-                                )
-                            )
+                            viewModel.saveTask(currentDraftTask().copy(priority = p))
                         },
                         label = { Text(p.displayName) }
                     )
@@ -297,7 +290,7 @@ fun TaskDetailScreen(
                     Switch(
                         checked = task.reminderEnabled,
                         onCheckedChange = { enabled ->
-                            viewModel.saveTask(task.copy(reminderEnabled = enabled))
+                            viewModel.saveTask(currentDraftTask().copy(reminderEnabled = enabled))
                         }
                     )
                 }
@@ -329,7 +322,7 @@ fun TaskDetailScreen(
                             selected = customerName.equals(c.name, ignoreCase = true),
                             onClick = {
                                 customerName = c.name
-                                viewModel.saveTask(task.copy(customerName = c.name))
+                                viewModel.saveTask(currentDraftTask().copy(customerName = c.name))
                             },
                             label = { Text(c.name) }
                         )
@@ -363,7 +356,7 @@ fun TaskDetailScreen(
                             selected = epicName.equals(epic.name, ignoreCase = true),
                             onClick = {
                                 epicName = epic.name
-                                viewModel.saveTask(task.copy(epicName = epic.name))
+                                viewModel.saveTask(currentDraftTask().copy(epicName = epic.name))
                             },
                             label = { Text(epic.name) }
                         )
@@ -379,7 +372,7 @@ fun TaskDetailScreen(
                         InputChip(
                             selected = true,
                             onClick = {
-                                viewModel.saveTask(task.copy(labels = task.labels - label))
+                                viewModel.saveTask(currentDraftTask().copy(labels = task.labels - label))
                             },
                             label = { Text("#$label ×") }
                         )
@@ -402,7 +395,7 @@ fun TaskDetailScreen(
                     onClick = {
                         val clean = newLabel.trim().removePrefix("#")
                         if (clean.isNotEmpty()) {
-                            viewModel.saveTask(task.copy(labels = (task.labels + clean).distinct()))
+                            viewModel.saveTask(currentDraftTask().copy(labels = (task.labels + clean).distinct()))
                             newLabel = ""
                         }
                     },

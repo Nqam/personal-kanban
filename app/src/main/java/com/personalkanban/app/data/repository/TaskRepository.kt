@@ -426,7 +426,7 @@ class TaskRepository @Inject constructor(
             .filter { !it.isDeleted }
         val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
         val sb = StringBuilder()
-        sb.appendLine("ID,Title,Status,Priority,Customer,DueAt,Labels,CreatedAt,CompletedAt,Archived")
+        sb.appendLine("ID,Title,Status,Priority,Customer,Epic,DueAt,Labels,CreatedAt,CompletedAt,Archived")
         tasks.forEach { t ->
             fun esc(s: String?) = "\"${(s ?: "").replace("\"", "\"\"")}\""
             val dueStr = t.dueAt?.let { dateFmt.format(Date(it)) } ?: ""
@@ -439,6 +439,7 @@ class TaskRepository @Inject constructor(
                     esc(t.status.displayName),
                     esc(t.priority.displayName),
                     esc(t.customerName),
+                    esc(t.epicName),
                     esc(dueStr),
                     esc(t.labels.joinToString(";")),
                     esc(createdStr),
@@ -463,6 +464,11 @@ class TaskRepository @Inject constructor(
         taskDao.upsertTasks(payload.tasks.map { it.toDomain().toEntity() })
         commentDao.upsertComments(payload.comments.map { it.toDomain().toEntity() })
         customerDao.upsertCustomers(payload.customers.map { it.toDomain().toEntity() })
+        val now = System.currentTimeMillis()
+        payload.tasks.forEach { dto ->
+            dto.customerName?.trim()?.takeIf { it.isNotEmpty() }?.let { ensureCustomerExists(it, now) }
+            dto.epicName?.trim()?.takeIf { it.isNotEmpty() }?.let { ensureEpicExists(it, now) }
+        }
         reminderScheduler.rescheduleAll()
         markLocalDirty()
         KanbanWidgetProvider.requestUpdate(context)

@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -84,6 +85,7 @@ fun TaskCard(
     val isDark = isSystemInDarkTheme()
     val isOverdue = remember(task.dueAt, task.hasTime, task.status) { TaskFilterEngine.isOverdue(task) }
     var showContextMenu by remember { mutableStateOf(false) }
+    var showQuickStatusMenu by remember { mutableStateOf(false) }
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -298,12 +300,33 @@ fun TaskCard(
                                 textColor = priorityColor
                             )
 
-                            // Status chip
-                            MetaPill(
-                                text = task.status.displayName,
-                                containerColor = statusColor.copy(alpha = 0.12f),
-                                textColor = statusColor
-                            )
+                            // Status chip (tap to change status quickly)
+                            Box {
+                                MetaPill(
+                                    text = task.status.displayName,
+                                    containerColor = statusColor.copy(alpha = 0.12f),
+                                    textColor = statusColor,
+                                    onClick = if (!isSelectionMode) {
+                                        { showQuickStatusMenu = true }
+                                    } else null
+                                )
+                                DropdownMenu(
+                                    expanded = showQuickStatusMenu,
+                                    onDismissRequest = { showQuickStatusMenu = false }
+                                ) {
+                                    TaskStatus.entries.forEach { targetStatus ->
+                                        DropdownMenuItem(
+                                            text = { Text(targetStatus.displayName) },
+                                            onClick = {
+                                                showQuickStatusMenu = false
+                                                if (targetStatus != task.status) {
+                                                    onChangeStatus(targetStatus)
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
 
                             // Due date
                             task.dueAt?.let { due ->
@@ -438,11 +461,17 @@ private fun MetaPill(
     containerColor: Color,
     textColor: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    dotColor: Color? = null
+    dotColor: Color? = null,
+    onClick: (() -> Unit)? = null
 ) {
     Surface(
         color = containerColor,
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(8.dp),
+        modifier = if (onClick != null) {
+            Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
+        } else {
+            Modifier
+        }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
