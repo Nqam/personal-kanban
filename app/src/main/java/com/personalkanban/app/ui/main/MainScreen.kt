@@ -307,10 +307,12 @@ fun MainScreen(
                         val tabColor = when (tab) {
                             TaskViewTab.ALL -> MaterialTheme.colorScheme.primary
                             TaskViewTab.INBOX -> TaskStatus.INBOX.accentColor(isDark)
+                            TaskViewTab.PLANNED -> TaskStatus.PLANNED.accentColor(isDark)
                             TaskViewTab.TODAY -> TaskStatus.PLANNED.accentColor(isDark)
-                            TaskViewTab.UPCOMING -> TaskStatus.WAITING.accentColor(isDark)
+                            TaskViewTab.UPCOMING -> MaterialTheme.colorScheme.tertiary
                             TaskViewTab.OVERDUE -> MaterialTheme.colorScheme.error
                             TaskViewTab.IN_PROGRESS -> TaskStatus.IN_PROGRESS.accentColor(isDark)
+                            TaskViewTab.WAITING -> TaskStatus.WAITING.accentColor(isDark)
                             TaskViewTab.DONE -> TaskStatus.DONE.accentColor(isDark)
                         }
                         val isSelected = state.filterState.selectedTab == tab
@@ -887,6 +889,22 @@ private fun FilterSortBottomSheet(
                         selected = state.filterState.sortOption == opt,
                         onClick = { onSetSort(opt) },
                         label = { Text(opt.displayName) }
+                    )
+                }
+            }
+
+            Text("Статус", style = MaterialTheme.typography.labelMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TaskStatus.entries.forEach { s ->
+                    val selected = s in state.filterState.statuses
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            onUpdateFilter { f ->
+                                f.copy(statuses = if (selected) f.statuses - s else f.statuses + s)
+                            }
+                        },
+                        label = { Text(s.displayName) }
                     )
                 }
             }

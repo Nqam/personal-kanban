@@ -22,10 +22,12 @@ enum class TaskPriority(val displayName: String, val weight: Int) {
 enum class TaskViewTab(val displayName: String) {
     ALL("Все задачи"),
     INBOX("Входящие"),
+    PLANNED("Запланировано"),
     TODAY("Сегодня"),
     UPCOMING("Предстоящие"),
     OVERDUE("Просроченные"),
     IN_PROGRESS("Выполняются"),
+    WAITING("Ожидает"),
     DONE("Завершённые")
 }
 

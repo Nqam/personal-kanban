@@ -111,6 +111,7 @@ object TaskFilterEngine {
     ): Boolean = when (tab) {
         TaskViewTab.ALL -> true
         TaskViewTab.INBOX -> task.status == TaskStatus.INBOX
+        TaskViewTab.PLANNED -> task.status == TaskStatus.PLANNED
         TaskViewTab.TODAY -> isDueToday(task, nowMillis, zoneId) && task.status != TaskStatus.DONE
         TaskViewTab.UPCOMING -> {
             val due = task.dueAt
@@ -118,6 +119,7 @@ object TaskFilterEngine {
         }
         TaskViewTab.OVERDUE -> isOverdue(task, nowMillis)
         TaskViewTab.IN_PROGRESS -> task.status == TaskStatus.IN_PROGRESS
+        TaskViewTab.WAITING -> task.status == TaskStatus.WAITING
         TaskViewTab.DONE -> task.status == TaskStatus.DONE
     }
 
