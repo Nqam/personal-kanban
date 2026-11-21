@@ -81,6 +81,7 @@ data class TaskItem(
     val hasTime: Boolean = false,
     val customerId: String? = null,
     val customerName: String? = null,
+    val epicName: String? = null,
     val labels: List<String> = emptyList(),
     val reminderEnabled: Boolean = true,
     val createdAt: Long,
@@ -114,6 +115,14 @@ data class Customer(
     val isDeleted: Boolean = false
 )
 
+data class Epic(
+    val id: String,
+    val name: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val isDeleted: Boolean = false
+)
+
 data class SyncConflict(
     val id: String,
     val taskId: String,
@@ -138,6 +147,7 @@ data class TaskFilterState(
     val statuses: Set<TaskStatus> = emptySet(),
     val priorities: Set<TaskPriority> = emptySet(),
     val customerName: String? = null,
+    val epicName: String? = null,
     val dueDateFilter: DueDateFilter = DueDateFilter.ALL,
     val onlyOverdue: Boolean = false,
     val onlyWithComments: Boolean = false,

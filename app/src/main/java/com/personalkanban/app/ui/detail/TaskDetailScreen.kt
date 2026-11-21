@@ -116,6 +116,7 @@ fun TaskDetailScreen(
     var title by remember(task.id) { mutableStateOf(task.title) }
     var description by remember(task.id) { mutableStateOf(task.description) }
     var customerName by remember(task.id) { mutableStateOf(task.customerName.orEmpty()) }
+    var epicName by remember(task.id) { mutableStateOf(task.epicName.orEmpty()) }
     var newLabel by remember { mutableStateOf("") }
     var newComment by remember { mutableStateOf("") }
     var editingComment by remember { mutableStateOf<TaskComment?>(null) }
@@ -148,12 +149,13 @@ fun TaskDetailScreen(
                 title = { Text("Детали задачи") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (title.isNotBlank() && (title != task.title || description != task.description || customerName != task.customerName.orEmpty())) {
+                        if (title.isNotBlank() && (title != task.title || description != task.description || customerName != task.customerName.orEmpty() || epicName != task.epicName.orEmpty())) {
                             viewModel.saveTask(
                                 task.copy(
                                     title = title,
                                     description = description,
-                                    customerName = customerName.takeIf { it.isNotBlank() }
+                                    customerName = customerName.takeIf { it.isNotBlank() },
+                                    epicName = epicName.takeIf { it.isNotBlank() }
                                 )
                             )
                         }
@@ -335,6 +337,40 @@ fun TaskDetailScreen(
                 }
             }
 
+            // Epic (Тематика) with autocomplete suggestions
+            OutlinedTextField(
+                value = epicName,
+                onValueChange = { epicName = it },
+                label = { Text("Тематика (Эпик)") },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            val epicSuggestions = remember(epicName, state.epics) {
+                state.epics.filter {
+                    epicName.isBlank() || it.name.contains(epicName, ignoreCase = true)
+                }.take(6)
+            }
+            if (epicSuggestions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    epicSuggestions.forEach { epic ->
+                        FilterChip(
+                            selected = epicName.equals(epic.name, ignoreCase = true),
+                            onClick = {
+                                epicName = epic.name
+                                viewModel.saveTask(task.copy(epicName = epic.name))
+                            },
+                            label = { Text(epic.name) }
+                        )
+                    }
+                }
+            }
+
             // Labels
             Text("Метки", style = MaterialTheme.typography.labelMedium)
             if (task.labels.isNotEmpty()) {
@@ -383,9 +419,11 @@ fun TaskDetailScreen(
                             task.copy(
                                 title = title,
                                 description = description,
-                                customerName = customerName.takeIf { it.isNotBlank() }
+                                customerName = customerName.takeIf { it.isNotBlank() },
+                                epicName = epicName.takeIf { it.isNotBlank() }
                             )
                         )
+                        onBack()
                     }
                 },
                 shape = RoundedCornerShape(12.dp),

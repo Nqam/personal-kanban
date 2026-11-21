@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personalkanban.app.data.repository.TaskRepository
 import com.personalkanban.app.domain.model.Customer
+import com.personalkanban.app.domain.model.Epic
 import com.personalkanban.app.domain.model.TaskComment
 import com.personalkanban.app.domain.model.TaskItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +20,8 @@ import javax.inject.Inject
 data class TaskDetailUiState(
     val task: TaskItem? = null,
     val comments: List<TaskComment> = emptyList(),
-    val customers: List<Customer> = emptyList()
+    val customers: List<Customer> = emptyList(),
+    val epics: List<Epic> = emptyList()
 )
 
 @HiltViewModel
@@ -33,9 +35,10 @@ class TaskDetailViewModel @Inject constructor(
     val uiState: StateFlow<TaskDetailUiState> = combine(
         taskRepository.observeTaskById(taskId),
         taskRepository.observeCommentsForTask(taskId),
-        taskRepository.observeCustomers()
-    ) { task, comments, customers ->
-        TaskDetailUiState(task = task, comments = comments, customers = customers)
+        taskRepository.observeCustomers(),
+        taskRepository.observeEpics()
+    ) { task, comments, customers, epics ->
+        TaskDetailUiState(task = task, comments = comments, customers = customers, epics = epics)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

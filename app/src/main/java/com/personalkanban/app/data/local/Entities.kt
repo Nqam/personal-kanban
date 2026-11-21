@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.personalkanban.app.domain.model.Customer
+import com.personalkanban.app.domain.model.Epic
 import com.personalkanban.app.domain.model.SyncConflict
 import com.personalkanban.app.domain.model.TaskAttachment
 import com.personalkanban.app.domain.model.TaskComment
@@ -44,7 +45,8 @@ data class TaskEntity(
     val isArchived: Boolean,
     val isDeleted: Boolean,
     val deletedAt: Long?,
-    val attachmentsJson: String = "[]"
+    val attachmentsJson: String = "[]",
+    val epicName: String? = null
 )
 
 @Entity(
@@ -75,6 +77,18 @@ data class CommentEntity(
     indices = [Index(value = ["name"])]
 )
 data class CustomerEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val isDeleted: Boolean
+)
+
+@Entity(
+    tableName = "epics",
+    indices = [Index(value = ["name"])]
+)
+data class EpicEntity(
     @PrimaryKey val id: String,
     val name: String,
     val createdAt: Long,
@@ -117,7 +131,8 @@ data class TaskSnapshotDto(
     val isArchived: Boolean = false,
     val isDeleted: Boolean = false,
     val deletedAt: Long? = null,
-    val attachments: List<TaskAttachment> = emptyList()
+    val attachments: List<TaskAttachment> = emptyList(),
+    val epicName: String? = null
 )
 
 fun TaskItem.toSnapshotDto(): TaskSnapshotDto = TaskSnapshotDto(
@@ -140,7 +155,8 @@ fun TaskItem.toSnapshotDto(): TaskSnapshotDto = TaskSnapshotDto(
     isArchived = isArchived,
     isDeleted = isDeleted,
     deletedAt = deletedAt,
-    attachments = attachments
+    attachments = attachments,
+    epicName = epicName
 )
 
 fun TaskSnapshotDto.toDomain(commentCount: Int = 0): TaskItem = TaskItem(
@@ -164,7 +180,8 @@ fun TaskSnapshotDto.toDomain(commentCount: Int = 0): TaskItem = TaskItem(
     isDeleted = isDeleted,
     deletedAt = deletedAt,
     commentCount = commentCount,
-    attachments = attachments
+    attachments = attachments,
+    epicName = epicName
 )
 
 fun TaskEntity.toDomain(commentCount: Int = 0): TaskItem {
@@ -195,7 +212,8 @@ fun TaskEntity.toDomain(commentCount: Int = 0): TaskItem {
         isDeleted = isDeleted,
         deletedAt = deletedAt,
         commentCount = commentCount,
-        attachments = parsedAttachments
+        attachments = parsedAttachments,
+        epicName = epicName
     )
 }
 
@@ -219,7 +237,8 @@ fun TaskItem.toEntity(): TaskEntity = TaskEntity(
     isArchived = isArchived,
     isDeleted = isDeleted,
     deletedAt = deletedAt,
-    attachmentsJson = internalJson.encodeToString(attachments)
+    attachmentsJson = internalJson.encodeToString(attachments),
+    epicName = epicName
 )
 
 fun CommentEntity.toDomain(): TaskComment = TaskComment(
@@ -253,6 +272,22 @@ fun CustomerEntity.toDomain(): Customer = Customer(
 )
 
 fun Customer.toEntity(): CustomerEntity = CustomerEntity(
+    id = id,
+    name = name,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    isDeleted = isDeleted
+)
+
+fun EpicEntity.toDomain(): Epic = Epic(
+    id = id,
+    name = name,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    isDeleted = isDeleted
+)
+
+fun Epic.toEntity(): EpicEntity = EpicEntity(
     id = id,
     name = name,
     createdAt = createdAt,

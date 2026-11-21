@@ -573,9 +573,10 @@ fun MainScreen(
     if (showQuickAddSheet) {
         QuickAddBottomSheet(
             customers = state.customers,
+            epics = state.epics,
             onDismiss = { showQuickAddSheet = false },
-            onCreateTask = { title, status, priority, dueAt, hasTime, customer, comment, attachmentUris, keepOpen ->
-                viewModel.createTask(title, status, priority, dueAt, hasTime, customer, comment, attachmentUris)
+            onCreateTask = { title, status, priority, dueAt, hasTime, customer, epic, comment, attachmentUris, keepOpen ->
+                viewModel.createTask(title, status, priority, dueAt, hasTime, customer, epic, comment, attachmentUris)
                 if (!keepOpen) {
                     showQuickAddSheet = false
                 }
@@ -928,6 +929,22 @@ private fun FilterSortBottomSheet(
                     onClick = { onUpdateFilter { it.copy(onlyWithComments = !it.onlyWithComments) } },
                     label = { Text("С комментариями") }
                 )
+            }
+
+            if (state.epics.isNotEmpty()) {
+                Text("Тематика (Эпик)", style = MaterialTheme.typography.labelMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.epics.forEach { epic ->
+                        val selected = state.filterState.epicName.equals(epic.name, ignoreCase = true)
+                        FilterChip(
+                            selected = selected,
+                            onClick = {
+                                onUpdateFilter { it.copy(epicName = if (selected) null else epic.name) }
+                            },
+                            label = { Text(epic.name) }
+                        )
+                    }
+                }
             }
 
             if (state.customers.isNotEmpty()) {

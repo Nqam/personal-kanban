@@ -23,6 +23,8 @@ import com.personalkanban.app.ui.extra.ArchiveTrashScreen
 import com.personalkanban.app.ui.extra.ArchiveTrashViewModel
 import com.personalkanban.app.ui.extra.CustomersScreen
 import com.personalkanban.app.ui.extra.CustomersViewModel
+import com.personalkanban.app.ui.extra.EpicsScreen
+import com.personalkanban.app.ui.extra.EpicsViewModel
 import com.personalkanban.app.ui.extra.StatsScreen
 import com.personalkanban.app.ui.extra.StatsViewModel
 import com.personalkanban.app.ui.main.MainScreen
@@ -100,6 +102,7 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onOpenArchiveTrash = { navController.navigate("archive_trash") },
                             onOpenCustomers = { navController.navigate("customers") },
+                            onOpenEpics = { navController.navigate("epics") },
                             onOpenStats = { navController.navigate("stats") }
                         )
                     }
@@ -116,6 +119,14 @@ class MainActivity : ComponentActivity() {
                     composable("customers") {
                         val vm: CustomersViewModel = hiltViewModel()
                         CustomersScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable("epics") {
+                        val vm: EpicsViewModel = hiltViewModel()
+                        EpicsScreen(
                             viewModel = vm,
                             onBack = { navController.popBackStack() }
                         )

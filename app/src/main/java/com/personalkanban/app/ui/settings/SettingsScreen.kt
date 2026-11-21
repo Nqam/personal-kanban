@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.PeopleOutline
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialog
@@ -76,6 +77,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenArchiveTrash: () -> Unit,
     onOpenCustomers: () -> Unit,
+    onOpenEpics: () -> Unit,
     onOpenStats: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -214,14 +216,28 @@ fun SettingsScreen(
                     Text("Заказчики")
                 }
             }
-            OutlinedButton(
-                onClick = onOpenStats,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Outlined.BarChart, null)
-                Spacer(Modifier.width(6.dp))
-                Text("Статистика задач")
+                OutlinedButton(
+                    onClick = onOpenEpics,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Outlined.FolderOpen, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Тематики")
+                }
+                OutlinedButton(
+                    onClick = onOpenStats,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Outlined.BarChart, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Статистика")
+                }
             }
 
             HorizontalDivider()

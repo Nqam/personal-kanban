@@ -68,6 +68,11 @@ object TaskFilterEngine {
                 if (targetCustomer.isNullOrBlank()) true
                 else task.customerName.equals(targetCustomer, ignoreCase = true)
             }
+            .filter { task ->
+                val targetEpic = filter.epicName
+                if (targetEpic.isNullOrBlank()) true
+                else task.epicName.equals(targetEpic, ignoreCase = true)
+            }
             .filter { task -> matchesDueFilter(task, filter.dueDateFilter, nowMillis, zoneId) }
             .filter { task ->
                 if (!filter.onlyOverdue) true else isOverdue(task, nowMillis)
@@ -86,10 +91,11 @@ object TaskFilterEngine {
                     val inTitle = task.title.lowercase().contains(normalizedQuery)
                     val inDesc = task.description.lowercase().contains(normalizedQuery)
                     val inCustomer = task.customerName?.lowercase()?.contains(normalizedQuery) == true
+                    val inEpic = task.epicName?.lowercase()?.contains(normalizedQuery) == true
                     val inLabels = task.labels.any { it.lowercase().contains(normalizedQuery) }
                     val inComments = commentsByTaskId[task.id]
                         ?.any { !it.isDeleted && it.text.lowercase().contains(normalizedQuery) } == true
-                    inTitle || inDesc || inCustomer || inLabels || inComments
+                    inTitle || inDesc || inCustomer || inEpic || inLabels || inComments
                 }
             }
             .toList()

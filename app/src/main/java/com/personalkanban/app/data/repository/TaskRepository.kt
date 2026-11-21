@@ -7,6 +7,7 @@ import androidx.work.WorkManager
 import com.personalkanban.app.BuildConfig
 import com.personalkanban.app.data.local.CommentDao
 import com.personalkanban.app.data.local.CustomerDao
+import com.personalkanban.app.data.local.EpicDao
 import com.personalkanban.app.data.local.SettingsDataStore
 import com.personalkanban.app.data.local.TaskDao
 import com.personalkanban.app.data.local.toDomain
@@ -16,6 +17,7 @@ import com.personalkanban.app.data.remote.BackupPayload
 import com.personalkanban.app.data.remote.toBackupDto
 import com.personalkanban.app.data.remote.toDomain
 import com.personalkanban.app.domain.model.Customer
+import com.personalkanban.app.domain.model.Epic
 import com.personalkanban.app.domain.model.SyncStatusType
 import com.personalkanban.app.domain.model.TaskAttachment
 import com.personalkanban.app.domain.model.TaskComment
@@ -44,6 +46,7 @@ class TaskRepository @Inject constructor(
     private val taskDao: TaskDao,
     private val commentDao: CommentDao,
     private val customerDao: CustomerDao,
+    private val epicDao: EpicDao,
     private val settingsDataStore: SettingsDataStore,
     private val reminderScheduler: ReminderScheduler,
     private val workManager: WorkManager,
@@ -77,6 +80,9 @@ class TaskRepository @Inject constructor(
     fun observeCustomers(): Flow<List<Customer>> =
         customerDao.observeActiveCustomers().map { list -> list.map { it.toDomain() } }
 
+    fun observeEpics(): Flow<List<Epic>> =
+        epicDao.observeActiveEpics().map { list -> list.map { it.toDomain() } }
+
     fun observeUnsyncedCount(): Flow<Int> = taskDao.observeUnsyncedCount()
 
     suspend fun createTask(
@@ -87,6 +93,7 @@ class TaskRepository @Inject constructor(
         dueAt: Long? = null,
         hasTime: Boolean = false,
         customerName: String? = null,
+        epicName: String? = null,
         labels: List<String> = emptyList(),
         reminderEnabled: Boolean = true,
         initialComment: String? = null,
@@ -95,6 +102,8 @@ class TaskRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val trimmedCustomer = customerName?.trim()?.takeIf { it.isNotEmpty() }
         val customerId = trimmedCustomer?.let { ensureCustomerExists(it, now) }
+        val trimmedEpic = epicName?.trim()?.takeIf { it.isNotEmpty() }
+        if (trimmedEpic != null) ensureEpicExists(trimmedEpic, now)
         val taskId = UUID.randomUUID().toString()
         val savedAttachments = attachmentUris.mapNotNull { copyUriToAttachment(taskId, it, now) }
 
@@ -108,6 +117,7 @@ class TaskRepository @Inject constructor(
             hasTime = hasTime,
             customerId = customerId,
             customerName = trimmedCustomer,
+            epicName = trimmedEpic,
             labels = labels.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
             reminderEnabled = reminderEnabled,
             createdAt = now,
@@ -133,6 +143,8 @@ class TaskRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val trimmedCustomer = updated.customerName?.trim()?.takeIf { it.isNotEmpty() }
         val customerId = trimmedCustomer?.let { ensureCustomerExists(it, now) }
+        val trimmedEpic = updated.epicName?.trim()?.takeIf { it.isNotEmpty() }
+        if (trimmedEpic != null) ensureEpicExists(trimmedEpic, now)
         val completedAt = when {
             updated.status == TaskStatus.DONE && updated.completedAt == null -> now
             updated.status != TaskStatus.DONE -> null
@@ -143,6 +155,7 @@ class TaskRepository @Inject constructor(
             description = updated.description.trim(),
             customerId = customerId,
             customerName = trimmedCustomer,
+            epicName = trimmedEpic,
             labels = updated.labels.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
             updatedAt = now,
             completedAt = completedAt,
@@ -215,6 +228,7 @@ class TaskRepository @Inject constructor(
             dueAt = original.dueAt,
             hasTime = original.hasTime,
             customerName = original.customerName,
+            epicName = original.epicName,
             labels = original.labels,
             reminderEnabled = original.reminderEnabled
         )
@@ -344,6 +358,42 @@ class TaskRepository @Inject constructor(
         val now = System.currentTimeMillis()
         customerDao.upsertCustomer(target.copy(isDeleted = true, updatedAt = now).toEntity())
         markLocalDirty()
+    }
+
+    suspend fun addEpic(name: String): Epic? {
+        val clean = name.trim()
+        if (clean.isEmpty()) return null
+        val existing = epicDao.findByName(clean)
+        if (existing != null) return existing.toDomain()
+        val now = System.currentTimeMillis()
+        val epic = Epic(
+            id = UUID.randomUUID().toString(),
+            name = clean,
+            createdAt = now,
+            updatedAt = now
+        )
+        epicDao.upsertEpic(epic.toEntity())
+        markLocalDirty()
+        return epic
+    }
+
+    suspend fun deleteEpic(epicId: String) {
+        val all = epicDao.getAllEpicsIncludingDeleted()
+        val target = all.firstOrNull { it.id == epicId }?.toDomain() ?: return
+        val now = System.currentTimeMillis()
+        epicDao.upsertEpic(target.copy(isDeleted = true, updatedAt = now).toEntity())
+        markLocalDirty()
+    }
+
+    private suspend fun ensureEpicExists(name: String, now: Long) {
+        if (epicDao.findByName(name) != null) return
+        val epic = Epic(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            createdAt = now,
+            updatedAt = now
+        )
+        epicDao.upsertEpic(epic.toEntity())
     }
 
     suspend fun exportToJson(): String {

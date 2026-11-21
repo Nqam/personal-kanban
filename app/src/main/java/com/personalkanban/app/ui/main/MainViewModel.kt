@@ -17,6 +17,7 @@ import com.personalkanban.app.data.repository.TaskRepository
 import com.personalkanban.app.domain.model.AppSettings
 import com.personalkanban.app.domain.model.Customer
 import com.personalkanban.app.domain.model.DueDateFilter
+import com.personalkanban.app.domain.model.Epic
 import com.personalkanban.app.domain.model.ReleaseInfo
 import com.personalkanban.app.domain.model.SortOption
 import com.personalkanban.app.domain.model.SyncConflict
@@ -52,6 +53,7 @@ data class MainUiState(
     val settings: AppSettings = AppSettings(),
     val collapsedStatuses: Set<String> = emptySet(),
     val customers: List<Customer> = emptyList(),
+    val epics: List<Epic> = emptyList(),
     val allLabels: List<String> = emptyList(),
     val selectedTaskIds: Set<String> = emptySet(),
     val conflicts: List<SyncConflict> = emptyList(),
@@ -96,7 +98,8 @@ class MainViewModel @Inject constructor(
         taskRepository.observeUnsyncedCount(),
         availableUpdateFlow,
         settingsDataStore.drivePromptDismissedFlow,
-        settingsDataStore.backupFileUriFlow
+        settingsDataStore.backupFileUriFlow,
+        taskRepository.observeEpics()
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val tasks = values[0] as List<TaskItem>
@@ -116,6 +119,8 @@ class MainViewModel @Inject constructor(
         val update = values[9] as ReleaseInfo?
         val promptDismissed = values[10] as Boolean
         val backupFileUri = values[11] as String?
+        @Suppress("UNCHECKED_CAST")
+        val epics = values[12] as List<Epic>
 
         val now = System.currentTimeMillis()
         val stats = MainStats(
@@ -136,6 +141,7 @@ class MainViewModel @Inject constructor(
             settings = settings,
             collapsedStatuses = collapsed,
             customers = customers,
+            epics = epics,
             allLabels = allLabels,
             selectedTaskIds = selectedIds,
             conflicts = conflicts,
@@ -210,6 +216,7 @@ class MainViewModel @Inject constructor(
         dueAt: Long?,
         hasTime: Boolean,
         customerName: String?,
+        epicName: String?,
         comment: String?,
         attachmentUris: List<Uri> = emptyList()
     ) {
@@ -221,6 +228,7 @@ class MainViewModel @Inject constructor(
                 dueAt = dueAt,
                 hasTime = hasTime,
                 customerName = customerName,
+                epicName = epicName,
                 initialComment = comment,
                 attachmentUris = attachmentUris
             )

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -330,6 +331,16 @@ fun TaskCard(
                                     icon = Icons.Outlined.PersonOutline,
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f),
                                     textColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+
+                            // Epic (Тематика)
+                            task.epicName?.takeIf { it.isNotBlank() }?.let { epic ->
+                                MetaPill(
+                                    text = epic,
+                                    icon = Icons.Outlined.FolderOpen,
+                                    containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                                    textColor = MaterialTheme.colorScheme.tertiary
                                 )
                             }
 

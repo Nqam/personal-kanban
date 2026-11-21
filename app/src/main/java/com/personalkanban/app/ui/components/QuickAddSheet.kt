@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Schedule
@@ -58,6 +59,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.personalkanban.app.domain.model.Customer
+import com.personalkanban.app.domain.model.Epic
 import com.personalkanban.app.domain.model.TaskPriority
 import com.personalkanban.app.domain.model.TaskStatus
 import java.time.LocalDate
@@ -68,6 +70,7 @@ import java.time.ZoneId
 @Composable
 fun QuickAddBottomSheet(
     customers: List<Customer>,
+    epics: List<Epic>,
     onDismiss: () -> Unit,
     onCreateTask: (
         title: String,
@@ -76,6 +79,7 @@ fun QuickAddBottomSheet(
         dueAt: Long?,
         hasTime: Boolean,
         customerName: String?,
+        epicName: String?,
         comment: String?,
         attachmentUris: List<Uri>,
         keepOpen: Boolean
@@ -94,6 +98,7 @@ fun QuickAddBottomSheet(
     var dueAt by remember { mutableStateOf<Long?>(null) }
     var hasTime by remember { mutableStateOf(false) }
     var customerName by remember { mutableStateOf("") }
+    var epicName by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
     var attachmentUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
@@ -112,6 +117,7 @@ fun QuickAddBottomSheet(
     var showPriorityRow by remember { mutableStateOf(false) }
     var showStatusRow by remember { mutableStateOf(false) }
     var showCustomerField by remember { mutableStateOf(false) }
+    var showEpicField by remember { mutableStateOf(false) }
     var showCommentField by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -167,6 +173,7 @@ fun QuickAddBottomSheet(
                             onCreateTask(
                                 title, status, priority, dueAt, hasTime,
                                 customerName.takeIf { it.isNotBlank() },
+                                epicName.takeIf { it.isNotBlank() },
                                 comment.takeIf { it.isNotBlank() },
                                 attachmentUris,
                                 false
@@ -240,6 +247,13 @@ fun QuickAddBottomSheet(
                     onClick = { showCustomerField = !showCustomerField },
                     label = { Text(customerName.ifBlank { "Заказчик" }) },
                     leadingIcon = { Icon(Icons.Outlined.PersonOutline, null, Modifier.height(16.dp)) }
+                )
+
+                FilterChip(
+                    selected = showEpicField || epicName.isNotBlank(),
+                    onClick = { showEpicField = !showEpicField },
+                    label = { Text(epicName.ifBlank { "Тематика" }) },
+                    leadingIcon = { Icon(Icons.Outlined.FolderOpen, null, Modifier.height(16.dp)) }
                 )
 
                 FilterChip(
@@ -342,6 +356,40 @@ fun QuickAddBottomSheet(
                 }
             }
 
+            AnimatedVisibility(visible = showEpicField) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = epicName,
+                        onValueChange = { epicName = it },
+                        label = { Text("Тематика (Эпик)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    val epicSuggestions = remember(epicName, epics) {
+                        epics.filter {
+                            epicName.isBlank() || it.name.contains(epicName, ignoreCase = true)
+                        }.take(5)
+                    }
+                    if (epicSuggestions.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            epicSuggestions.forEach { e ->
+                                FilterChip(
+                                    selected = epicName.equals(e.name, ignoreCase = true),
+                                    onClick = { epicName = e.name },
+                                    label = { Text(e.name) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             AnimatedVisibility(visible = showCommentField) {
                 OutlinedTextField(
                     value = comment,
@@ -365,6 +413,7 @@ fun QuickAddBottomSheet(
                             onCreateTask(
                                 title, status, priority, dueAt, hasTime,
                                 customerName.takeIf { it.isNotBlank() },
+                                epicName.takeIf { it.isNotBlank() },
                                 comment.takeIf { it.isNotBlank() },
                                 attachmentUris,
                                 true
@@ -387,6 +436,7 @@ fun QuickAddBottomSheet(
                             onCreateTask(
                                 title, status, priority, dueAt, hasTime,
                                 customerName.takeIf { it.isNotBlank() },
+                                epicName.takeIf { it.isNotBlank() },
                                 comment.takeIf { it.isNotBlank() },
                                 attachmentUris,
                                 false

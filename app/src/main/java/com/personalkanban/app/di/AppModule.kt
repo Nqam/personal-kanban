@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.work.WorkManager
 import com.personalkanban.app.data.local.CommentDao
 import com.personalkanban.app.data.local.CustomerDao
+import com.personalkanban.app.data.local.EpicDao
 import com.personalkanban.app.data.local.PersonalKanbanDatabase
 import com.personalkanban.app.data.local.SyncConflictDao
 import com.personalkanban.app.data.local.TaskDao
@@ -45,8 +46,10 @@ object AppModule {
             context,
             PersonalKanbanDatabase::class.java,
             "personal_kanban.db"
-        ).addMigrations(PersonalKanbanDatabase.MIGRATION_1_2)
-            .build()
+        ).addMigrations(
+            PersonalKanbanDatabase.MIGRATION_1_2,
+            PersonalKanbanDatabase.MIGRATION_2_3
+        ).build()
 
     @Provides
     fun provideTaskDao(db: PersonalKanbanDatabase): TaskDao = db.taskDao()
@@ -56,6 +59,9 @@ object AppModule {
 
     @Provides
     fun provideCustomerDao(db: PersonalKanbanDatabase): CustomerDao = db.customerDao()
+
+    @Provides
+    fun provideEpicDao(db: PersonalKanbanDatabase): EpicDao = db.epicDao()
 
     @Provides
     fun provideSyncConflictDao(db: PersonalKanbanDatabase): SyncConflictDao = db.syncConflictDao()

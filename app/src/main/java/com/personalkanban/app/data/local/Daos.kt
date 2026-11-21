@@ -89,6 +89,24 @@ interface CustomerDao {
 }
 
 @Dao
+interface EpicDao {
+    @Query("SELECT * FROM epics WHERE isDeleted = 0 ORDER BY name COLLATE NOCASE ASC")
+    fun observeActiveEpics(): Flow<List<EpicEntity>>
+
+    @Query("SELECT * FROM epics")
+    suspend fun getAllEpicsIncludingDeleted(): List<EpicEntity>
+
+    @Query("SELECT * FROM epics WHERE LOWER(name) = LOWER(:name) AND isDeleted = 0 LIMIT 1")
+    suspend fun findByName(name: String): EpicEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertEpic(epic: EpicEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertEpics(epics: List<EpicEntity>)
+}
+
+@Dao
 interface SyncConflictDao {
     @Query("SELECT * FROM sync_conflicts WHERE resolved = 0 ORDER BY detectedAt DESC")
     fun observeUnresolvedConflicts(): Flow<List<SyncConflictEntity>>
