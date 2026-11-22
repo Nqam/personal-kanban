@@ -220,20 +220,21 @@ fun TaskCard(
                         modifier = Modifier
                             .weight(1f)
                             .padding(
-                                horizontal = 14.dp,
-                                vertical = if (compact) 10.dp else 13.dp
+                                horizontal = if (compact) 12.dp else 14.dp,
+                                vertical = if (compact) 7.dp else 14.dp
                             ),
-                        verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)
+                        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)
                     ) {
                         // Top row: title + overdue badge
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top,
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 text = task.title,
-                                style = MaterialTheme.typography.titleSmall.copy(
+                                style = (if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleSmall).copy(
+                                    fontWeight = FontWeight.Medium,
                                     textDecoration = if (task.status == TaskStatus.DONE) {
                                         TextDecoration.LineThrough
                                     } else {
@@ -245,7 +246,7 @@ fun TaskCard(
                                 } else {
                                     MaterialTheme.colorScheme.onSurface
                                 },
-                                maxLines = if (compact) 1 else 2,
+                                maxLines = if (compact) 1 else 3,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
@@ -267,11 +268,13 @@ fun TaskCard(
                                             tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(12.dp)
                                         )
-                                        Text(
-                                            text = "Просрочено",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.error
-                                        )
+                                        if (!compact) {
+                                            Text(
+                                                text = "Просрочено",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -282,23 +285,25 @@ fun TaskCard(
                                 text = task.description,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
+                                maxLines = 3,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
 
-                        // Metadata row
+                        // Metadata row: compact shows only status + due date + counts; normal shows all pills
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
                         ) {
-                            // Priority chip
-                            MetaPill(
-                                text = task.priority.displayName,
-                                dotColor = priorityColor,
-                                containerColor = priorityColor.copy(alpha = 0.10f),
-                                textColor = priorityColor
-                            )
+                            if (!compact) {
+                                // Priority chip (in compact mode, left color stripe indicates priority)
+                                MetaPill(
+                                    text = task.priority.displayName,
+                                    dotColor = priorityColor,
+                                    containerColor = priorityColor.copy(alpha = 0.10f),
+                                    textColor = priorityColor
+                                )
+                            }
 
                             // Status chip (tap to change status quickly)
                             Box {
@@ -347,24 +352,26 @@ fun TaskCard(
                                 )
                             }
 
-                            // Customer
-                            task.customerName?.takeIf { it.isNotBlank() }?.let { customer ->
-                                MetaPill(
-                                    text = customer,
-                                    icon = Icons.Outlined.PersonOutline,
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f),
-                                    textColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
+                            if (!compact) {
+                                // Customer
+                                task.customerName?.takeIf { it.isNotBlank() }?.let { customer ->
+                                    MetaPill(
+                                        text = customer,
+                                        icon = Icons.Outlined.PersonOutline,
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f),
+                                        textColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
 
-                            // Epic (Тематика)
-                            task.epicName?.takeIf { it.isNotBlank() }?.let { epic ->
-                                MetaPill(
-                                    text = epic,
-                                    icon = Icons.Outlined.FolderOpen,
-                                    containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
-                                    textColor = MaterialTheme.colorScheme.tertiary
-                                )
+                                // Epic (Тематика)
+                                task.epicName?.takeIf { it.isNotBlank() }?.let { epic ->
+                                    MetaPill(
+                                        text = epic,
+                                        icon = Icons.Outlined.FolderOpen,
+                                        containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                                        textColor = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
                             }
 
                             // Comments count
@@ -387,7 +394,7 @@ fun TaskCard(
                                 )
                             }
 
-                            // Labels (only in expanded mode or if <= 2)
+                            // Labels (only in expanded mode)
                             if (!compact) {
                                 task.labels.forEach { label ->
                                     MetaPill(
