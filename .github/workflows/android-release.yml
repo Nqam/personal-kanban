@@ -42,12 +42,18 @@ jobs:
 
       - name: Decode Release Keystore (if configured)
         id: keystore
-        if: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > ${{ runner.temp }}/release.keystore
-          echo "path=${{ runner.temp }}/release.keystore" >> $GITHUB_OUTPUT
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > "${{ runner.temp }}/release.keystore"
+            echo "path=${{ runner.temp }}/release.keystore" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Build Release APK
+      - name: Build Release APK (signed if keystore configured)
+        if: steps.keystore.outputs.path != ''
         env:
           KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
           KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -55,8 +61,8 @@ jobs:
           KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Build Debug APK (fallback if unsigned)
-        if: ${{ steps.keystore.outputs.path == '' }}
+      - name: Build Debug APK (fallback if keystore not configured)
+        if: steps.keystore.outputs.path == ''
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Prepare APK and SHA-256 checksum
@@ -64,26 +70,26 @@ jobs:
         run: |
           mkdir -p dist
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
-            cp app/build/outputs/apk/release/app-release.apk dist/PersonalKanban-release.apk
+            cp app/build/outputs/apk/release/app-release.apk dist/TaskFlow-release.apk
           else
-            cp app/build/outputs/apk/debug/app-debug.apk dist/PersonalKanban-release.apk
+            cp app/build/outputs/apk/debug/app-debug.apk dist/TaskFlow-debug.apk
           fi
-          sha256sum dist/PersonalKanban-release.apk | awk '{print $1}' > dist/PersonalKanban-release.apk.sha256
+          sha256sum dist/*.apk | awk '{print $1}' > dist/checksum.sha256
           ls -lh dist/
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PersonalKanban-APK
+          name: TaskFlow-APK
           path: dist/*
 
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release_tag != ''
+      - name: Publish GitHub Release (on manual dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
-          name: "Personal Kanban ${{ github.event.inputs.release_tag || github.ref_name }}"
+          tag_name: ${{ inputs.release_tag }}
+          name: "TaskFlow ${{ inputs.release_tag }}"
           generate_release_notes: true
           files: |
-            dist/PersonalKanban-release.apk
-            dist/PersonalKanban-release.apk.sha256
+            dist/*.apk
+            dist/checksum.sha256
