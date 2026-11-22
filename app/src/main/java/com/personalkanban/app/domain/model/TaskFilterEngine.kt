@@ -121,22 +121,9 @@ object TaskFilterEngine {
         zoneId: ZoneId
     ): Boolean = when (tab) {
         TaskViewTab.ALL -> true
-        TaskViewTab.INBOX -> task.status == TaskStatus.INBOX
-        TaskViewTab.PLANNED -> task.status == TaskStatus.PLANNED
-        TaskViewTab.TODAY -> isDueToday(task, nowMillis, zoneId) && task.status != TaskStatus.DONE
-        TaskViewTab.UPCOMING -> {
-            val due = task.dueAt
-            if (due == null || task.status == TaskStatus.DONE) {
-                false
-            } else {
-                val today = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
-                val dueDate = Instant.ofEpochMilli(due).atZone(zoneId).toLocalDate()
-                dueDate.isAfter(today)
-            }
-        }
-        TaskViewTab.OVERDUE -> isOverdue(task, nowMillis, zoneId)
+        TaskViewTab.TODO -> task.status == TaskStatus.TODO
         TaskViewTab.IN_PROGRESS -> task.status == TaskStatus.IN_PROGRESS
-        TaskViewTab.WAITING -> task.status == TaskStatus.WAITING
+        TaskViewTab.REVIEW -> task.status == TaskStatus.REVIEW
         TaskViewTab.DONE -> task.status == TaskStatus.DONE
     }
 

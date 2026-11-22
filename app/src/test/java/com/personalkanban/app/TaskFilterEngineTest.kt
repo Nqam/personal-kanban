@@ -28,7 +28,7 @@ class TaskFilterEngineTest {
         id: String,
         title: String = "Task $id",
         description: String = "",
-        status: TaskStatus = TaskStatus.INBOX,
+        status: TaskStatus = TaskStatus.TODO,
         priority: TaskPriority = TaskPriority.MEDIUM,
         dueAt: Long? = null,
         customerName: String? = null,
@@ -78,22 +78,25 @@ class TaskFilterEngineTest {
     }
 
     @Test
-    fun `overdue and today tabs filter accurately`() {
-        val overdueTask = task("1", dueAt = yesterday, status = TaskStatus.PLANNED)
+    fun `overdue filter excludes done tasks`() {
+        val overdueTask = task("1", dueAt = yesterday, status = TaskStatus.TODO)
         val todayTask = task("2", dueAt = todayEvening, status = TaskStatus.IN_PROGRESS)
         val doneOverdue = task("3", dueAt = yesterday, status = TaskStatus.DONE)
-        val futureTask = task("4", dueAt = tomorrow, status = TaskStatus.PLANNED)
+        val futureTask = task("4", dueAt = tomorrow, status = TaskStatus.REVIEW)
 
         val all = listOf(overdueTask, todayTask, doneOverdue, futureTask)
 
-        assertTrue(TaskFilterEngine.isOverdue(overdueTask, now))
-        assertFalse(TaskFilterEngine.isOverdue(doneOverdue, now))
+        assertTrue(TaskFilterEngine.isOverdue(overdueTask, now, zone))
+        assertFalse(TaskFilterEngine.isOverdue(doneOverdue, now, zone))
 
-        val overdueRes = TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.OVERDUE), emptyMap(), now, zone)
+        val overdueRes = TaskFilterEngine.filterAndSort(
+            all,
+            TaskFilterState(dueDateFilter = DueDateFilter.OVERDUE),
+            emptyMap(),
+            now,
+            zone
+        )
         assertEquals(listOf("1"), overdueRes.map { it.id })
-
-        val todayRes = TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.TODAY), emptyMap(), now, zone)
-        assertEquals(listOf("2"), todayRes.map { it.id })
     }
 
     @Test
@@ -117,36 +120,34 @@ class TaskFilterEngineTest {
     }
 
     @Test
-    fun `all statuses and view tabs including WAITING and PLANNED filter consistently`() {
-        val inbox = task("1", status = TaskStatus.INBOX)
-        val planned = task("2", status = TaskStatus.PLANNED)
-        val inProgress = task("3", status = TaskStatus.IN_PROGRESS)
-        val waiting = task("4", status = TaskStatus.WAITING)
-        val done = task("5", status = TaskStatus.DONE)
-        val all = listOf(inbox, planned, inProgress, waiting, done)
+    fun `all 4 statuses and view tabs filter consistently`() {
+        val todo = task("1", status = TaskStatus.TODO)
+        val inProgress = task("2", status = TaskStatus.IN_PROGRESS)
+        val review = task("3", status = TaskStatus.REVIEW)
+        val done = task("4", status = TaskStatus.DONE)
+        val all = listOf(todo, inProgress, review, done)
 
-        assertEquals(listOf("1"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.INBOX), emptyMap(), now, zone).map { it.id })
-        assertEquals(listOf("2"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.PLANNED), emptyMap(), now, zone).map { it.id })
-        assertEquals(listOf("3"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.IN_PROGRESS), emptyMap(), now, zone).map { it.id })
-        assertEquals(listOf("4"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.WAITING), emptyMap(), now, zone).map { it.id })
-        assertEquals(listOf("5"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.DONE), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("1"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.TODO), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("2"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.IN_PROGRESS), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("3"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.REVIEW), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("4"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.DONE), emptyMap(), now, zone).map { it.id })
 
         val multiStatus = TaskFilterEngine.filterAndSort(
             all,
-            TaskFilterState(statuses = setOf(TaskStatus.WAITING, TaskStatus.PLANNED)),
+            TaskFilterState(statuses = setOf(TaskStatus.REVIEW, TaskStatus.TODO)),
             emptyMap(),
             now,
             zone
         )
-        assertEquals(setOf("2", "4"), multiStatus.map { it.id }.toSet())
+        assertEquals(setOf("1", "3"), multiStatus.map { it.id }.toSet())
     }
 
     @Test
     fun `overdue triggers on next day when no time set or after exact time when time set`() {
         val lateTonight = LocalDate.of(2026, 11, 20).atTime(23, 0).atZone(zone).toInstant().toEpochMilli()
-        val sameDayNoTime = task("1", dueAt = now, status = TaskStatus.PLANNED).copy(hasTime = false)
-        val sameDayPastTime = task("2", dueAt = now, status = TaskStatus.PLANNED).copy(hasTime = true)
-        val yesterdayNoTime = task("3", dueAt = yesterday, status = TaskStatus.PLANNED).copy(hasTime = false)
+        val sameDayNoTime = task("1", dueAt = now, status = TaskStatus.TODO).copy(hasTime = false)
+        val sameDayPastTime = task("2", dueAt = now, status = TaskStatus.TODO).copy(hasTime = true)
+        val yesterdayNoTime = task("3", dueAt = yesterday, status = TaskStatus.TODO).copy(hasTime = false)
 
         assertFalse(TaskFilterEngine.isOverdue(sameDayNoTime, lateTonight, zone))
         assertTrue(TaskFilterEngine.isOverdue(sameDayPastTime, lateTonight, zone))

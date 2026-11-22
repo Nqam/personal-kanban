@@ -186,11 +186,11 @@ fun TaskCard(
                 tonalElevation = 1.dp,
                 shadowElevation = 1.dp,
                 border = BorderStroke(
-                    width = if (isSelected) 1.5.dp else 1.dp,
+                    width = if (isSelected || isOverdue) 1.5.dp else 1.dp,
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.primary
                     } else if (isOverdue) {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
+                        MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.outlineVariant
                     }

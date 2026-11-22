@@ -115,7 +115,7 @@ data class TaskSnapshotDto(
     val id: String,
     val title: String,
     val description: String = "",
-    val status: TaskStatus = TaskStatus.INBOX,
+    val status: TaskStatus = TaskStatus.TODO,
     val priority: TaskPriority = TaskPriority.MEDIUM,
     val dueAt: Long? = null,
     val hasTime: Boolean = false,
@@ -191,11 +191,16 @@ fun TaskEntity.toDomain(commentCount: Int = 0): TaskItem {
     val parsedAttachments = runCatching {
         internalJson.decodeFromString<List<TaskAttachment>>(attachmentsJson)
     }.getOrDefault(emptyList())
+    val mappedStatus = when (status) {
+        "INBOX", "PLANNED" -> TaskStatus.TODO
+        "WAITING" -> TaskStatus.REVIEW
+        else -> runCatching { TaskStatus.valueOf(status) }.getOrDefault(TaskStatus.TODO)
+    }
     return TaskItem(
         id = id,
         title = title,
         description = description,
-        status = runCatching { TaskStatus.valueOf(status) }.getOrDefault(TaskStatus.INBOX),
+        status = mappedStatus,
         priority = runCatching { TaskPriority.valueOf(priority) }.getOrDefault(TaskPriority.MEDIUM),
         dueAt = dueAt,
         hasTime = hasTime,

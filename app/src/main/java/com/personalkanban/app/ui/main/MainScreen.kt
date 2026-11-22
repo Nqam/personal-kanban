@@ -283,13 +283,11 @@ fun MainScreen(
                 ) {
                     StatLabel("Активных: ${state.stats.activeCount}")
                     StatLabel("Сегодня: ${state.stats.todayCount}")
-                    if (state.stats.overdueCount > 0) {
-                        StatLabel(
-                            text = "Просрочено: ${state.stats.overdueCount}",
-                            isAlert = true
-                        )
-                    }
-                    StatLabel("Готово: ${state.stats.doneCount}")
+                    StatLabel(
+                        text = "Просрочено: ${state.stats.overdueCount}",
+                        isAlert = state.stats.overdueCount > 0
+                    )
+                    StatLabel("Выполнено: ${state.stats.doneCount}")
                 }
 
                 // Search bar
@@ -313,7 +311,7 @@ fun MainScreen(
                     )
                 }
 
-                // View tabs with status-matched accent colors
+                // View tabs: only the 4 statuses (tap active chip again to show all)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -321,22 +319,19 @@ fun MainScreen(
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TaskViewTab.entries.forEach { tab ->
-                        val tabColor = when (tab) {
-                            TaskViewTab.ALL -> MaterialTheme.colorScheme.primary
-                            TaskViewTab.INBOX -> TaskStatus.INBOX.accentColor(isDark)
-                            TaskViewTab.PLANNED -> TaskStatus.PLANNED.accentColor(isDark)
-                            TaskViewTab.TODAY -> TaskStatus.PLANNED.accentColor(isDark)
-                            TaskViewTab.UPCOMING -> MaterialTheme.colorScheme.tertiary
-                            TaskViewTab.OVERDUE -> MaterialTheme.colorScheme.error
-                            TaskViewTab.IN_PROGRESS -> TaskStatus.IN_PROGRESS.accentColor(isDark)
-                            TaskViewTab.WAITING -> TaskStatus.WAITING.accentColor(isDark)
-                            TaskViewTab.DONE -> TaskStatus.DONE.accentColor(isDark)
-                        }
+                    listOf(
+                        TaskViewTab.TODO to TaskStatus.TODO,
+                        TaskViewTab.IN_PROGRESS to TaskStatus.IN_PROGRESS,
+                        TaskViewTab.REVIEW to TaskStatus.REVIEW,
+                        TaskViewTab.DONE to TaskStatus.DONE
+                    ).forEach { (tab, status) ->
+                        val tabColor = status.accentColor(isDark)
                         val isSelected = state.filterState.selectedTab == tab
                         FilterChip(
                             selected = isSelected,
-                            onClick = { viewModel.selectTab(tab) },
+                            onClick = {
+                                viewModel.selectTab(if (isSelected) TaskViewTab.ALL else tab)
+                            },
                             label = { Text(tab.displayName) },
                             colors = FilterChipDefaults.filterChipColors(
                                 containerColor = tabColor.copy(alpha = 0.08f),
@@ -444,7 +439,7 @@ fun MainScreen(
                         OutlinedTextField(
                             value = inlineTaskTitle,
                             onValueChange = { inlineTaskTitle = it },
-                            placeholder = { Text("Быстрая задача во входящие...") },
+                            placeholder = { Text("Быстрая задача...") },
                             singleLine = true,
                             shape = RoundedCornerShape(24.dp),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),

@@ -93,7 +93,7 @@ fun QuickAddBottomSheet(
     val focusRequester = remember { FocusRequester() }
 
     var title by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf(TaskStatus.INBOX) }
+    var status by remember { mutableStateOf(TaskStatus.TODO) }
     var priority by remember { mutableStateOf(TaskPriority.MEDIUM) }
     var dueAt by remember { mutableStateOf<Long?>(null) }
     var hasTime by remember { mutableStateOf(false) }
@@ -231,7 +231,7 @@ fun QuickAddBottomSheet(
                 )
 
                 FilterChip(
-                    selected = showStatusRow || status != TaskStatus.INBOX,
+                    selected = showStatusRow || status != TaskStatus.TODO,
                     onClick = {
                         showStatusRow = !showStatusRow
                         if (showStatusRow) showPriorityRow = false

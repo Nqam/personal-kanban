@@ -18,7 +18,7 @@ class SyncMergeEngineTest {
         updatedAt: Long = 1000L,
         lastSyncedAt: Long = 1000L,
         isDeleted: Boolean = false,
-        status: TaskStatus = TaskStatus.INBOX,
+        status: TaskStatus = TaskStatus.TODO,
         priority: TaskPriority = TaskPriority.MEDIUM
     ) = TaskItem(
         id = id,

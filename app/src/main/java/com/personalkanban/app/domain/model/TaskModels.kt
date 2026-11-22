@@ -4,11 +4,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class TaskStatus(val displayName: String, val order: Int) {
-    INBOX("Входящие", 0),
-    PLANNED("Запланировано", 1),
-    IN_PROGRESS("В работе", 2),
-    WAITING("Ожидает", 3),
-    DONE("Готово", 4)
+    TODO("К выполнению", 0),
+    IN_PROGRESS("В работе", 1),
+    REVIEW("На проверке", 2),
+    DONE("Выполнено", 3)
 }
 
 @Serializable
@@ -20,15 +19,11 @@ enum class TaskPriority(val displayName: String, val weight: Int) {
 }
 
 enum class TaskViewTab(val displayName: String) {
-    ALL("Все задачи"),
-    INBOX("Входящие"),
-    PLANNED("Запланировано"),
-    TODAY("Сегодня"),
-    UPCOMING("Предстоящие"),
-    OVERDUE("Просроченные"),
-    IN_PROGRESS("Выполняются"),
-    WAITING("Ожидает"),
-    DONE("Завершённые")
+    ALL("Все"),
+    TODO("К выполнению"),
+    IN_PROGRESS("В работе"),
+    REVIEW("На проверке"),
+    DONE("Выполнено")
 }
 
 enum class DueDateFilter(val displayName: String) {
@@ -77,7 +72,7 @@ data class TaskItem(
     val id: String,
     val title: String,
     val description: String = "",
-    val status: TaskStatus = TaskStatus.INBOX,
+    val status: TaskStatus = TaskStatus.TODO,
     val priority: TaskPriority = TaskPriority.MEDIUM,
     val dueAt: Long? = null,
     val hasTime: Boolean = false,

@@ -88,7 +88,7 @@ class TaskRepository @Inject constructor(
     suspend fun createTask(
         title: String,
         description: String = "",
-        status: TaskStatus = TaskStatus.INBOX,
+        status: TaskStatus = TaskStatus.TODO,
         priority: TaskPriority = TaskPriority.MEDIUM,
         dueAt: Long? = null,
         hasTime: Boolean = false,
@@ -223,7 +223,7 @@ class TaskRepository @Inject constructor(
         return createTask(
             title = "${original.title} (копия)",
             description = original.description,
-            status = TaskStatus.INBOX,
+            status = TaskStatus.TODO,
             priority = original.priority,
             dueAt = original.dueAt,
             hasTime = original.hasTime,
