@@ -311,7 +311,7 @@ fun MainScreen(
                     )
                 }
 
-                // View tabs: only the 4 statuses (tap active chip again to show all)
+                // View tabs: TODO, IN_PROGRESS, DONE (tap active chip again to show all)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -322,7 +322,6 @@ fun MainScreen(
                     listOf(
                         TaskViewTab.TODO to TaskStatus.TODO,
                         TaskViewTab.IN_PROGRESS to TaskStatus.IN_PROGRESS,
-                        TaskViewTab.REVIEW to TaskStatus.REVIEW,
                         TaskViewTab.DONE to TaskStatus.DONE
                     ).forEach { (tab, status) ->
                         val tabColor = status.accentColor(isDark)

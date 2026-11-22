@@ -465,7 +465,16 @@ fun TaskDetailScreen(
                 val thumb = remember(att.localPath) {
                     if (isImage) {
                         runCatching {
-                            val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
+                            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                            BitmapFactory.decodeFile(att.localPath, bounds)
+                            var sample = 1
+                            while (bounds.outWidth / sample > 128 && bounds.outHeight / sample > 128) {
+                                sample *= 2
+                            }
+                            val opts = BitmapFactory.Options().apply {
+                                inSampleSize = sample
+                                inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                            }
                             BitmapFactory.decodeFile(att.localPath, opts)?.asImageBitmap()
                         }.getOrNull()
                     } else null

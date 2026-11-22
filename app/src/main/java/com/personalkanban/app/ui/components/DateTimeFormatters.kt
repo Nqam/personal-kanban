@@ -11,9 +11,15 @@ import java.util.Locale
 object DateTimeFormatters {
     private val ruLocale = Locale("ru", "RU")
 
+    private val headerFmt = ThreadLocal.withInitial { SimpleDateFormat("EEEE, d MMMM", ruLocale) }
+    private val shortDateFmt = ThreadLocal.withInitial { SimpleDateFormat("d MMM", ruLocale) }
+    private val fullDateFmt = ThreadLocal.withInitial { SimpleDateFormat("d MMM yyyy", ruLocale) }
+    private val timeFmt = ThreadLocal.withInitial { SimpleDateFormat("HH:mm", ruLocale) }
+    private val timestampFmt = ThreadLocal.withInitial { SimpleDateFormat("dd.MM.yyyy HH:mm", ruLocale) }
+
     fun formatHeaderDate(millis: Long = System.currentTimeMillis()): String {
-        val fmt = SimpleDateFormat("EEEE, d MMMM", ruLocale)
-        return fmt.format(Date(millis)).replaceFirstChar { it.uppercase(ruLocale) }
+        val raw = headerFmt.get()!!.format(Date(millis))
+        return raw.replaceFirstChar { it.uppercase(ruLocale) }
     }
 
     fun formatDueDate(dueAt: Long, hasTime: Boolean): String {
@@ -26,23 +32,19 @@ object DateTimeFormatters {
             today.plusDays(1) -> "Завтра"
             today.minusDays(1) -> "Вчера"
             else -> {
-                val pattern = if (dueDate.year == today.year) "d MMM" else "d MMM yyyy"
-                SimpleDateFormat(pattern, ruLocale).format(Date(dueAt))
+                val fmt = if (dueDate.year == today.year) shortDateFmt.get()!! else fullDateFmt.get()!!
+                fmt.format(Date(dueAt))
             }
         }
 
         return if (hasTime) {
-            val timePart = SimpleDateFormat("HH:mm", ruLocale).format(Date(dueAt))
-            "$datePart, $timePart"
+            "$datePart, ${timeFmt.get()!!.format(Date(dueAt))}"
         } else {
             datePart
         }
     }
 
-    fun formatTimestamp(millis: Long): String {
-        val fmt = SimpleDateFormat("dd.MM.yyyy HH:mm", ruLocale)
-        return fmt.format(Date(millis))
-    }
+    fun formatTimestamp(millis: Long): String = timestampFmt.get()!!.format(Date(millis))
 
     fun combineDateAndTime(dateMillis: Long, hour: Int, minute: Int): Long {
         val zone = ZoneId.systemDefault()

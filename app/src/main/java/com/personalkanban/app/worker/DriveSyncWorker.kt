@@ -55,7 +55,7 @@ class DriveSyncWorker @AssistedInject constructor(
                 .setRequiresBatteryNotLow(true)
                 .build()
 
-            val request = PeriodicWorkRequestBuilder<DriveSyncWorker>(4, TimeUnit.HOURS)
+            val request = PeriodicWorkRequestBuilder<DriveSyncWorker>(12, TimeUnit.HOURS)
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                 .build()

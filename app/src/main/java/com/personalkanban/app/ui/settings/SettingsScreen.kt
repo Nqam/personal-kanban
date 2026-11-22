@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,21 +19,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PeopleOutline
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -63,6 +66,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -72,118 +77,28 @@ import com.personalkanban.app.domain.model.ThemeMode
 import com.personalkanban.app.ui.components.DateTimeFormatters
 import com.personalkanban.app.ui.components.OpenGoogleDriveDocument
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+enum class SettingsSection(val title: String) {
+    APPEARANCE("Внешний вид"),
+    NOTIFICATIONS("Уведомления и напоминания"),
+    SYNC("Резервное копирование"),
+    UPDATES("Обновления приложения"),
+    DATA("Данные и кэш")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    scrollToUpdates: Boolean = false,
     onBack: () -> Unit,
+    onOpenSection: (SettingsSection) -> Unit,
     onOpenArchiveTrash: () -> Unit,
     onOpenCustomers: () -> Unit,
     onOpenEpics: () -> Unit,
     onOpenStats: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
-    val updatesBringIntoView = remember { BringIntoViewRequester() }
-
-    LaunchedEffect(scrollToUpdates) {
-        if (scrollToUpdates) {
-            viewModel.checkForUpdates()
-            updatesBringIntoView.bringIntoView()
-        }
-    }
-
-    var customMinutesInput by remember(state.settings.customReminderMinutes) {
-        mutableStateOf(state.settings.customReminderMinutes?.toString().orEmpty())
-    }
-
-    val googleSignInLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        viewModel.handleGoogleSignInResult(result.data)
-    }
-
-    val notificationPermLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        viewModel.setNotificationsEnabled(granted)
-    }
-
-    val importDumpLauncher = rememberLauncherForActivityResult(
-        contract = OpenGoogleDriveDocument()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.restoreFromDumpUri(uri)
-        }
-    }
-
-    val importJsonLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            val raw = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            if (raw != null) viewModel.importJson(raw)
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is SettingsEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
-                is SettingsEvent.ShareFile -> {
-                    val uri = viewModel.createFileUri(event.file)
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = event.mimeType
-                        putExtra(Intent.EXTRA_STREAM, uri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    context.startActivity(Intent.createChooser(intent, event.title))
-                }
-                is SettingsEvent.SendDumpToDrive -> {
-                    val uri = viewModel.createFileUri(event.file)
-                    val driveIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/json"
-                        putExtra(Intent.EXTRA_STREAM, uri)
-                        putExtra(Intent.EXTRA_SUBJECT, "Personal Kanban Backup")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        setPackage("com.google.android.apps.docs")
-                    }
-                    if (driveIntent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(driveIntent)
-                    } else {
-                        val fallback = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/json"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            putExtra(Intent.EXTRA_SUBJECT, "Personal Kanban Backup")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        context.startActivity(Intent.createChooser(fallback, "Сохранить дамп в Google Диск"))
-                    }
-                }
-                is SettingsEvent.InstallApk -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-                        val settingsIntent = Intent(
-                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                            Uri.parse("package:${context.packageName}")
-                        )
-                        context.startActivity(settingsIntent)
-                    } else {
-                        val uri = viewModel.createFileUri(event.file)
-                        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(uri, "application/vnd.android.package-archive")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(installIntent)
-                    }
-                }
-            }
-        }
-    }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Настройки") },
@@ -201,9 +116,8 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Quick navigation cards
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -251,333 +165,525 @@ fun SettingsScreen(
                 }
             }
 
-            HorizontalDivider()
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            // Appearance
-            SectionTitle("Внешний вид")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = state.settings.themeMode == mode,
-                        onClick = { viewModel.setThemeMode(mode) },
-                        label = { Text(mode.displayName) }
-                    )
-                }
-            }
+            SettingsMenuItem(
+                icon = Icons.Outlined.Palette,
+                title = SettingsSection.APPEARANCE.title,
+                subtitle = "${state.settings.themeMode.displayName} · ${if (state.settings.compactCards) "Компактные карточки" else "Обычные карточки"}",
+                onClick = { onOpenSection(SettingsSection.APPEARANCE) }
+            )
+            SettingsMenuItem(
+                icon = Icons.Outlined.NotificationsActive,
+                title = SettingsSection.NOTIFICATIONS.title,
+                subtitle = if (state.settings.notificationsEnabled) "Включены" else "Отключены",
+                onClick = { onOpenSection(SettingsSection.NOTIFICATIONS) }
+            )
+            SettingsMenuItem(
+                icon = Icons.Outlined.CloudSync,
+                title = SettingsSection.SYNC.title,
+                subtitle = state.settings.lastSyncStatus.displayName,
+                onClick = { onOpenSection(SettingsSection.SYNC) }
+            )
+            SettingsMenuItem(
+                icon = Icons.Outlined.SystemUpdate,
+                title = SettingsSection.UPDATES.title,
+                subtitle = "Версия ${BuildConfig.VERSION_NAME}",
+                onClick = { onOpenSection(SettingsSection.UPDATES) }
+            )
+            SettingsMenuItem(
+                icon = Icons.Outlined.Storage,
+                title = SettingsSection.DATA.title,
+                subtitle = "Экспорт JSON/CSV, импорт, очистка кэша",
+                onClick = { onOpenSection(SettingsSection.DATA) }
+            )
+        }
+    }
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Компактные карточки", style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked = state.settings.compactCards,
-                    onCheckedChange = viewModel::setCompactCards
+@Composable
+private fun SettingsMenuItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
-            HorizontalDivider()
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun SettingsDetailScreen(
+    section: SettingsSection,
+    viewModel: SettingsViewModel,
+    autoCheckUpdates: Boolean = false,
+    onBack: () -> Unit
+) {
+    val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
-            // Notifications
-            SectionTitle("Уведомления и напоминания")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Локальные уведомления", style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked = state.settings.notificationsEnabled,
-                    onCheckedChange = { enabled ->
-                        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.setNotificationsEnabled(enabled)
+    var customMinutesInput by remember(state.settings.customReminderMinutes) {
+        mutableStateOf(state.settings.customReminderMinutes?.toString().orEmpty())
+    }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.handleGoogleSignInResult(result.data)
+    }
+
+    val notificationPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.setNotificationsEnabled(granted)
+    }
+
+    val importDumpLauncher = rememberLauncherForActivityResult(
+        contract = OpenGoogleDriveDocument()
+    ) { uri ->
+        if (uri != null) viewModel.restoreFromDumpUri(uri)
+    }
+
+    val importJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val raw = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            if (raw != null) viewModel.importJson(raw)
+        }
+    }
+
+    LaunchedEffect(autoCheckUpdates, section) {
+        if (section == SettingsSection.UPDATES && autoCheckUpdates) {
+            viewModel.checkForUpdates()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is SettingsEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
+                is SettingsEvent.ShareFile -> {
+                    val uri = viewModel.createFileUri(event.file)
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = event.mimeType
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(intent, event.title))
+                }
+                is SettingsEvent.SendDumpToDrive -> {
+                    val uri = viewModel.createFileUri(event.file)
+                    val driveIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "TaskFlow Backup")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        setPackage("com.google.android.apps.docs")
+                    }
+                    if (driveIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(driveIntent)
+                    } else {
+                        val fallback = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, "TaskFlow Backup")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(fallback, "Сохранить дамп в Google Диск"))
+                    }
+                }
+                is SettingsEvent.InstallApk -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+                        val settingsIntent = Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(settingsIntent)
+                    } else {
+                        val uri = viewModel.createFileUri(event.file)
+                        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(installIntent)
+                    }
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text(section.title) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            when (section) {
+                SettingsSection.APPEARANCE -> {
+                    Text("Тема оформления", style = MaterialTheme.typography.titleSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = state.settings.themeMode == mode,
+                                onClick = { viewModel.setThemeMode(mode) },
+                                label = { Text(mode.displayName) }
+                            )
                         }
                     }
-                )
-            }
 
-            Text("Интервалы напоминаний (можно выбрать несколько)", style = MaterialTheme.typography.labelMedium)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                ReminderPresets.defaultOptions.forEach { (minutes, label) ->
-                    FilterChip(
-                        selected = minutes in state.settings.reminderIntervalsMinutes,
-                        onClick = { viewModel.toggleReminderInterval(minutes) },
-                        label = { Text(label) }
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = customMinutesInput,
-                    onValueChange = { customMinutesInput = it.filter(Char::isDigit) },
-                    label = { Text("Свой интервал (минут до срока)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedButton(onClick = {
-                    val mins = customMinutesInput.toIntOrNull()
-                    viewModel.setCustomReminderMinutes(mins)
-                }) {
-                    Text("Задать")
-                }
-            }
-
-            HorizontalDivider()
-
-            // Google Drive Sync
-            SectionTitle("Синхронизация с Google Drive")
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = state.settings.googleAccountEmail?.let { "Аккаунт: $it" } ?: "Google-аккаунт не подключён (локальный режим)",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "Статус: ${state.settings.lastSyncStatus.displayName}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    state.settings.lastSyncAt?.let { ts ->
-                        Text(
-                            text = "Последняя синхронизация: ${DateTimeFormatters.formatTimestamp(ts)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    state.settings.lastSyncError?.let { err ->
-                        Text(
-                            text = err,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Компактные карточки", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Скрывает описание и лишние бейджи, помещается больше задач",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.settings.compactCards,
+                            onCheckedChange = viewModel::setCompactCards
                         )
                     }
                 }
-            }
 
-            if (state.settings.googleAccountEmail == null) {
-                Button(
-                    onClick = viewModel::sendDumpToGoogleDrive,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Outlined.CloudSync, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Сохранить дамп в Google Диск")
-                }
-                OutlinedButton(
-                    onClick = { importDumpLauncher.launch(arrayOf("application/json", "*/*")) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Outlined.CloudDownload, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Загрузить дамп из Google Диска")
-                }
-                TextButton(
-                    onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("OAuth-синхронизация (требует настройки SHA-1 в Google Cloud)")
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { viewModel.syncNow(createSnapshot = false) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+                SettingsSection.NOTIFICATIONS -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Синхронизировать")
+                        Text("Локальные уведомления", style = MaterialTheme.typography.bodyLarge)
+                        Switch(
+                            checked = state.settings.notificationsEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    viewModel.setNotificationsEnabled(enabled)
+                                }
+                            }
+                        )
                     }
-                    OutlinedButton(
-                        onClick = { viewModel.syncNow(createSnapshot = true) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+
+                    Text("Интервалы напоминаний (можно выбрать несколько)", style = MaterialTheme.typography.labelMedium)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("Создать копию")
+                        ReminderPresets.defaultOptions.forEach { (minutes, label) ->
+                            FilterChip(
+                                selected = minutes in state.settings.reminderIntervalsMinutes,
+                                onClick = { viewModel.toggleReminderInterval(minutes) },
+                                label = { Text(label) }
+                            )
+                        }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = viewModel::verifyBackupIntegrity,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Проверить копию")
-                    }
-                    OutlinedButton(
-                        onClick = { viewModel.requestRestore(null) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Восстановить")
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = viewModel::loadSnapshots,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Outlined.CloudDownload, null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("История копий")
-                    }
-                    TextButton(
-                        onClick = viewModel::disconnectGoogleAccount,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Отключить", color = MaterialTheme.colorScheme.error)
+                        OutlinedTextField(
+                            value = customMinutesInput,
+                            onValueChange = { customMinutesInput = it.filter(Char::isDigit) },
+                            label = { Text("Свой интервал (минут до срока)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedButton(onClick = {
+                            viewModel.setCustomReminderMinutes(customMinutesInput.toIntOrNull())
+                        }) {
+                            Text("Задать")
+                        }
                     }
                 }
 
-                if (state.snapshots.isNotEmpty()) {
-                    Text("Доступные резервные копии:", style = MaterialTheme.typography.labelMedium)
-                    state.snapshots.forEach { snap ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                SettingsSection.SYNC -> {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = snap.fileName,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.weight(1f)
+                                text = state.settings.googleAccountEmail?.let { "Аккаунт: $it" } ?: "Локальный режим / дамп-файл",
+                                style = MaterialTheme.typography.bodyMedium
                             )
-                            TextButton(onClick = { viewModel.requestRestore(snap.fileId) }) {
+                            Text(
+                                text = "Статус: ${state.settings.lastSyncStatus.displayName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            state.settings.lastSyncAt?.let { ts ->
+                                Text(
+                                    text = "Последнее сохранение: ${DateTimeFormatters.formatTimestamp(ts)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            state.settings.lastSyncError?.let { err ->
+                                Text(
+                                    text = err,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+
+                    if (state.settings.googleAccountEmail == null) {
+                        Button(
+                            onClick = viewModel::sendDumpToGoogleDrive,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.CloudSync, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Отправить дамп в Google Диск")
+                        }
+                        OutlinedButton(
+                            onClick = { importDumpLauncher.launch(arrayOf("application/json", "*/*")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.CloudDownload, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Загрузить дамп из Google Диска")
+                        }
+                        TextButton(
+                            onClick = { googleSignInLauncher.launch(viewModel.getGoogleSignInIntent()) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("OAuth-синхронизация (требует SHA-1 в Google Cloud)")
+                        }
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { viewModel.syncNow(createSnapshot = false) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Синхронизировать")
+                            }
+                            OutlinedButton(
+                                onClick = { viewModel.syncNow(createSnapshot = true) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Создать копию")
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = viewModel::verifyBackupIntegrity,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Проверить копию")
+                            }
+                            OutlinedButton(
+                                onClick = { viewModel.requestRestore(null) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
                                 Text("Восстановить")
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = viewModel::loadSnapshots,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Outlined.CloudDownload, null)
+                                Spacer(Modifier.width(4.dp))
+                                Text("История копий")
+                            }
+                            TextButton(
+                                onClick = viewModel::disconnectGoogleAccount,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Отключить", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+
+                        if (state.snapshots.isNotEmpty()) {
+                            Text("Доступные резервные копии:", style = MaterialTheme.typography.labelMedium)
+                            state.snapshots.forEach { snap ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = snap.fileName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(onClick = { viewModel.requestRestore(snap.fileId) }) {
+                                        Text("Восстановить")
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            HorizontalDivider()
+                SettingsSection.UPDATES -> {
+                    Text(
+                        text = "Текущая версия: ${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
 
-            // GitHub Updates
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bringIntoViewRequester(updatesBringIntoView),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SectionTitle("Обновления приложения")
-                Text(
-                    text = "Текущая версия: ${BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Button(
-                onClick = viewModel::checkForUpdates,
-                enabled = !state.checkingUpdate,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (state.checkingUpdate) {
-                    CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Outlined.SystemUpdate, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Проверить обновления")
-                }
-            }
-
-            state.updateStatusMessage?.let { msg ->
-                Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            state.availableRelease?.let { release ->
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Button(
+                        onClick = viewModel::checkForUpdates,
+                        enabled = !state.checkingUpdate,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Новая версия: ${release.versionName}", style = MaterialTheme.typography.titleSmall)
-                        if (release.releaseNotes.isNotBlank()) {
-                            Text(release.releaseNotes, style = MaterialTheme.typography.bodySmall)
+                        if (state.checkingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Outlined.SystemUpdate, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Проверить обновления")
                         }
-                        state.downloadProgressPercent?.let { pct ->
-                            LinearProgressIndicator(
-                                progress = { pct / 100f },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Text("Загрузка: $pct%", style = MaterialTheme.typography.labelSmall)
-                        }
-                        Button(
-                            onClick = { viewModel.downloadAndInstallUpdate(release) },
-                            enabled = state.downloadProgressPercent == null,
+                    }
+
+                    state.updateStatusMessage?.let { msg ->
+                        Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    state.availableRelease?.let { release ->
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Скачать и установить")
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("Новая версия: ${release.versionName}", style = MaterialTheme.typography.titleSmall)
+                                if (release.releaseNotes.isNotBlank()) {
+                                    Text(release.releaseNotes, style = MaterialTheme.typography.bodySmall)
+                                }
+                                state.downloadProgressPercent?.let { pct ->
+                                    LinearProgressIndicator(
+                                        progress = { pct / 100f },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Text("Загрузка: $pct%", style = MaterialTheme.typography.labelSmall)
+                                }
+                                Button(
+                                    onClick = { viewModel.downloadAndInstallUpdate(release) },
+                                    enabled = state.downloadProgressPercent == null,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Скачать и установить")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                SettingsSection.DATA -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = viewModel::exportJson,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Экспорт JSON")
+                        }
+                        OutlinedButton(
+                            onClick = viewModel::exportCsv,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Экспорт CSV")
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { importJsonLauncher.launch("application/json") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Импорт JSON")
+                        }
+                        OutlinedButton(
+                            onClick = viewModel::clearLocalCache,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.DeleteOutline, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Очистить кэш")
                         }
                     }
                 }
             }
-
-            HorizontalDivider()
-
-            // Data Export/Import
-            SectionTitle("Данные")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = viewModel::exportJson,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Экспорт JSON")
-                }
-                OutlinedButton(
-                    onClick = viewModel::exportCsv,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Экспорт CSV")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { importJsonLauncher.launch("application/json") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Импорт JSON")
-                }
-                OutlinedButton(
-                    onClick = viewModel::clearLocalCache,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Outlined.DeleteOutline, null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Очистить кэш")
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
         }
     }
 
@@ -600,13 +706,4 @@ fun SettingsScreen(
             }
         )
     }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary
-    )
 }

@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +31,9 @@ import com.personalkanban.app.ui.extra.StatsScreen
 import com.personalkanban.app.ui.extra.StatsViewModel
 import com.personalkanban.app.ui.main.MainScreen
 import com.personalkanban.app.ui.main.MainViewModel
+import com.personalkanban.app.ui.settings.SettingsDetailScreen
 import com.personalkanban.app.ui.settings.SettingsScreen
+import com.personalkanban.app.ui.settings.SettingsSection
 import com.personalkanban.app.ui.settings.SettingsViewModel
 import com.personalkanban.app.ui.theme.PersonalKanbanTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -67,7 +71,14 @@ class MainActivity : ComponentActivity() {
                     navController.navigate("task/$targetTask")
                 }
 
-                NavHost(navController = navController, startDestination = "main") {
+                NavHost(
+                    navController = navController,
+                    startDestination = "main",
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None }
+                ) {
                     composable("main") {
                         val vm: MainViewModel = hiltViewModel()
                         MainScreen(
@@ -77,7 +88,11 @@ class MainActivity : ComponentActivity() {
                             onOpenTask = { id -> navController.navigate("task/$id") },
                             onOpenArchiveTrash = { navController.navigate("archive_trash") },
                             onOpenSettings = { scrollToUpdates ->
-                                navController.navigate("settings?scrollToUpdates=$scrollToUpdates")
+                                if (scrollToUpdates) {
+                                    navController.navigate("settings_detail/${SettingsSection.UPDATES.name}?autoCheck=true")
+                                } else {
+                                    navController.navigate("settings")
+                                }
                             }
                         )
                     }
@@ -98,25 +113,40 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    composable("settings") {
+                        val vm: SettingsViewModel = hiltViewModel()
+                        SettingsScreen(
+                            viewModel = vm,
+                            onBack = { navController.popBackStack() },
+                            onOpenSection = { section ->
+                                navController.navigate("settings_detail/${section.name}?autoCheck=false")
+                            },
+                            onOpenArchiveTrash = { navController.navigate("archive_trash") },
+                            onOpenCustomers = { navController.navigate("customers") },
+                            onOpenEpics = { navController.navigate("epics") },
+                            onOpenStats = { navController.navigate("stats") }
+                        )
+                    }
+
                     composable(
-                        route = "settings?scrollToUpdates={scrollToUpdates}",
+                        route = "settings_detail/{section}?autoCheck={autoCheck}",
                         arguments = listOf(
-                            navArgument("scrollToUpdates") {
+                            navArgument("section") { type = NavType.StringType },
+                            navArgument("autoCheck") {
                                 type = NavType.BoolType
                                 defaultValue = false
                             }
                         )
                     ) { backStackEntry ->
-                        val scrollToUpdates = backStackEntry.arguments?.getBoolean("scrollToUpdates") ?: false
+                        val sectionName = backStackEntry.arguments?.getString("section") ?: SettingsSection.APPEARANCE.name
+                        val section = runCatching { SettingsSection.valueOf(sectionName) }.getOrDefault(SettingsSection.APPEARANCE)
+                        val autoCheck = backStackEntry.arguments?.getBoolean("autoCheck") ?: false
                         val vm: SettingsViewModel = hiltViewModel()
-                        SettingsScreen(
+                        SettingsDetailScreen(
+                            section = section,
                             viewModel = vm,
-                            scrollToUpdates = scrollToUpdates,
-                            onBack = { navController.popBackStack() },
-                            onOpenArchiveTrash = { navController.navigate("archive_trash") },
-                            onOpenCustomers = { navController.navigate("customers") },
-                            onOpenEpics = { navController.navigate("epics") },
-                            onOpenStats = { navController.navigate("stats") }
+                            autoCheckUpdates = autoCheck,
+                            onBack = { navController.popBackStack() }
                         )
                     }
 
