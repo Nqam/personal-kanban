@@ -82,7 +82,7 @@ class TaskFilterEngineTest {
         val overdueTask = task("1", dueAt = yesterday, status = TaskStatus.TODO)
         val todayTask = task("2", dueAt = todayEvening, status = TaskStatus.IN_PROGRESS)
         val doneOverdue = task("3", dueAt = yesterday, status = TaskStatus.DONE)
-        val futureTask = task("4", dueAt = tomorrow, status = TaskStatus.REVIEW)
+        val futureTask = task("4", dueAt = tomorrow, status = TaskStatus.IN_PROGRESS)
 
         val all = listOf(overdueTask, todayTask, doneOverdue, futureTask)
 
@@ -120,26 +120,24 @@ class TaskFilterEngineTest {
     }
 
     @Test
-    fun `all 4 statuses and view tabs filter consistently`() {
+    fun `all 3 statuses and view tabs filter consistently`() {
         val todo = task("1", status = TaskStatus.TODO)
         val inProgress = task("2", status = TaskStatus.IN_PROGRESS)
-        val review = task("3", status = TaskStatus.REVIEW)
-        val done = task("4", status = TaskStatus.DONE)
-        val all = listOf(todo, inProgress, review, done)
+        val done = task("3", status = TaskStatus.DONE)
+        val all = listOf(todo, inProgress, done)
 
         assertEquals(listOf("1"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.TODO), emptyMap(), now, zone).map { it.id })
         assertEquals(listOf("2"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.IN_PROGRESS), emptyMap(), now, zone).map { it.id })
-        assertEquals(listOf("3"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.REVIEW), emptyMap(), now, zone).map { it.id })
-        assertEquals(listOf("4"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.DONE), emptyMap(), now, zone).map { it.id })
+        assertEquals(listOf("3"), TaskFilterEngine.filterAndSort(all, TaskFilterState(selectedTab = TaskViewTab.DONE), emptyMap(), now, zone).map { it.id })
 
         val multiStatus = TaskFilterEngine.filterAndSort(
             all,
-            TaskFilterState(statuses = setOf(TaskStatus.REVIEW, TaskStatus.TODO)),
+            TaskFilterState(statuses = setOf(TaskStatus.IN_PROGRESS, TaskStatus.TODO)),
             emptyMap(),
             now,
             zone
         )
-        assertEquals(setOf("1", "3"), multiStatus.map { it.id }.toSet())
+        assertEquals(setOf("1", "2"), multiStatus.map { it.id }.toSet())
     }
 
     @Test

@@ -193,7 +193,7 @@ fun TaskEntity.toDomain(commentCount: Int = 0): TaskItem {
     }.getOrDefault(emptyList())
     val mappedStatus = when (status) {
         "INBOX", "PLANNED" -> TaskStatus.TODO
-        "WAITING" -> TaskStatus.REVIEW
+        "WAITING", "REVIEW" -> TaskStatus.IN_PROGRESS
         else -> runCatching { TaskStatus.valueOf(status) }.getOrDefault(TaskStatus.TODO)
     }
     return TaskItem(

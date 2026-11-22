@@ -6,8 +6,7 @@ import kotlinx.serialization.Serializable
 enum class TaskStatus(val displayName: String, val order: Int) {
     TODO("К выполнению", 0),
     IN_PROGRESS("В работе", 1),
-    REVIEW("На проверке", 2),
-    DONE("Выполнено", 3)
+    DONE("Выполнено", 2)
 }
 
 @Serializable
@@ -22,7 +21,6 @@ enum class TaskViewTab(val displayName: String) {
     ALL("Все"),
     TODO("К выполнению"),
     IN_PROGRESS("В работе"),
-    REVIEW("На проверке"),
     DONE("Выполнено")
 }
 

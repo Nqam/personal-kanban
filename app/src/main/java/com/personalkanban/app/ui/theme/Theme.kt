@@ -103,6 +103,5 @@ fun TaskPriority.color(isDark: Boolean): Color = when (this) {
 fun TaskStatus.accentColor(isDark: Boolean): Color = when (this) {
     TaskStatus.TODO -> if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB)
     TaskStatus.IN_PROGRESS -> if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706)
-    TaskStatus.REVIEW -> if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED)
     TaskStatus.DONE -> if (isDark) Color(0xFF34D399) else Color(0xFF059669)
 }

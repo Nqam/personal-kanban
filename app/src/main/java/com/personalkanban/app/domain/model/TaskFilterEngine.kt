@@ -123,7 +123,6 @@ object TaskFilterEngine {
         TaskViewTab.ALL -> true
         TaskViewTab.TODO -> task.status == TaskStatus.TODO
         TaskViewTab.IN_PROGRESS -> task.status == TaskStatus.IN_PROGRESS
-        TaskViewTab.REVIEW -> task.status == TaskStatus.REVIEW
         TaskViewTab.DONE -> task.status == TaskStatus.DONE
     }
 
