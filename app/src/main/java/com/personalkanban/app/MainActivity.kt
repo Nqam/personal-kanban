@@ -76,7 +76,9 @@ class MainActivity : ComponentActivity() {
                             onConsumeInitialQuickAdd = { pendingQuickAdd = false },
                             onOpenTask = { id -> navController.navigate("task/$id") },
                             onOpenArchiveTrash = { navController.navigate("archive_trash") },
-                            onOpenSettings = { navController.navigate("settings") }
+                            onOpenSettings = { scrollToUpdates ->
+                                navController.navigate("settings?scrollToUpdates=$scrollToUpdates")
+                            }
                         )
                     }
 
@@ -96,10 +98,20 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    composable("settings") {
+                    composable(
+                        route = "settings?scrollToUpdates={scrollToUpdates}",
+                        arguments = listOf(
+                            navArgument("scrollToUpdates") {
+                                type = NavType.BoolType
+                                defaultValue = false
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val scrollToUpdates = backStackEntry.arguments?.getBoolean("scrollToUpdates") ?: false
                         val vm: SettingsViewModel = hiltViewModel()
                         SettingsScreen(
                             viewModel = vm,
+                            scrollToUpdates = scrollToUpdates,
                             onBack = { navController.popBackStack() },
                             onOpenArchiveTrash = { navController.navigate("archive_trash") },
                             onOpenCustomers = { navController.navigate("customers") },

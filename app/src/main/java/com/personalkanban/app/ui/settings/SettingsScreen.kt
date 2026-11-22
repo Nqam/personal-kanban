@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -70,10 +72,11 @@ import com.personalkanban.app.domain.model.ThemeMode
 import com.personalkanban.app.ui.components.DateTimeFormatters
 import com.personalkanban.app.ui.components.OpenGoogleDriveDocument
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    scrollToUpdates: Boolean = false,
     onBack: () -> Unit,
     onOpenArchiveTrash: () -> Unit,
     onOpenCustomers: () -> Unit,
@@ -83,6 +86,14 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val updatesBringIntoView = remember { BringIntoViewRequester() }
+
+    LaunchedEffect(scrollToUpdates) {
+        if (scrollToUpdates) {
+            viewModel.checkForUpdates()
+            updatesBringIntoView.bringIntoView()
+        }
+    }
 
     var customMinutesInput by remember(state.settings.customReminderMinutes) {
         mutableStateOf(state.settings.customReminderMinutes?.toString().orEmpty())
@@ -463,11 +474,18 @@ fun SettingsScreen(
             HorizontalDivider()
 
             // GitHub Updates
-            SectionTitle("Обновления приложения")
-            Text(
-                text = "Текущая версия: ${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(updatesBringIntoView),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SectionTitle("Обновления приложения")
+                Text(
+                    text = "Текущая версия: ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Button(
                 onClick = viewModel::checkForUpdates,

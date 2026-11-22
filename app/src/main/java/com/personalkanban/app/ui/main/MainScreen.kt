@@ -118,7 +118,7 @@ fun MainScreen(
     onConsumeInitialQuickAdd: () -> Unit,
     onOpenTask: (String) -> Unit,
     onOpenArchiveTrash: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: (scrollToUpdates: Boolean) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -268,7 +268,7 @@ fun MainScreen(
                         IconButton(onClick = onOpenArchiveTrash) {
                             Icon(Icons.Outlined.Archive, contentDescription = "Старые задачи и корзина")
                         }
-                        IconButton(onClick = onOpenSettings) {
+                        IconButton(onClick = { onOpenSettings(false) }) {
                             Icon(Icons.Outlined.Settings, contentDescription = "Настройки")
                         }
                     }
@@ -380,47 +380,6 @@ fun MainScreen(
                         )
                         TextButton(onClick = viewModel::clearFilters) {
                             Text("Сбросить", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-
-                // Update available banner
-                state.availableUpdate?.let { release ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                            .clickable { onOpenSettings() }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.SystemUpdate,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "Доступна версия ${release.versionName}. Нажмите для обновления.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                            IconButton(
-                                onClick = viewModel::dismissUpdateBanner,
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Скрыть", modifier = Modifier.size(16.dp))
-                            }
                         }
                     }
                 }
@@ -698,14 +657,41 @@ fun MainScreen(
     if (showDumpDialog) {
         AlertDialog(
             onDismissRequest = { showDumpDialog = false },
-            title = { Text("Резервная копия (Google Диск)") },
+            title = { Text("Резервная копия") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Отправьте дамп напрямую в приложение Google Диск или выберите файл дампа для восстановления.",
+                        text = if (!state.backupFileUri.isNullOrBlank()) {
+                            "Файл резервной копии привязан. При сохранении он перезаписывается (новый файл не создаётся)."
+                        } else {
+                            "Привяжите файл дампа один раз (на телефоне или в облаке), чтобы он всегда перезаписывался, либо отправьте копию в Google Диск."
+                        },
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Button(
+                    if (!state.backupFileUri.isNullOrBlank()) {
+                        Button(
+                            onClick = {
+                                showDumpDialog = false
+                                viewModel.syncNow()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Перезаписать дамп сейчас")
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                showDumpDialog = false
+                                createBackupDocLauncher.launch("taskflow_backup.json")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Привязать файл дампа (для перезаписи)")
+                        }
+                    }
+                    OutlinedButton(
                         onClick = {
                             showDumpDialog = false
                             viewModel.sendDumpToGoogleDrive()
@@ -713,7 +699,7 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Сохранить дамп в Google Диск")
+                        Text("Отправить копию в Google Диск")
                     }
                     OutlinedButton(
                         onClick = {
@@ -723,16 +709,18 @@ fun MainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Скачать / восстановить дамп")
+                        Text("Восстановить из дампа")
                     }
-                    TextButton(
-                        onClick = {
-                            showDumpDialog = false
-                            createBackupDocLauncher.launch("personal_kanban_backup.json")
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Привязать локальный авто-файл")
+                    if (!state.backupFileUri.isNullOrBlank()) {
+                        TextButton(
+                            onClick = {
+                                showDumpDialog = false
+                                createBackupDocLauncher.launch("taskflow_backup.json")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Выбрать другой файл для перезаписи")
+                        }
                     }
                 }
             },
@@ -740,6 +728,43 @@ fun MainScreen(
             dismissButton = {
                 TextButton(onClick = { showDumpDialog = false }) {
                     Text("Закрыть")
+                }
+            }
+        )
+    }
+
+    state.availableUpdate?.let { release ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUpdateBanner,
+            title = { Text("Доступно обновление ${release.versionName}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Текущая версия: ${com.personalkanban.app.BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (release.releaseNotes.isNotBlank()) {
+                        Text(
+                            text = release.releaseNotes,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 8,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.dismissUpdateBanner()
+                    onOpenSettings(true)
+                }) {
+                    Text("Перейти к обновлению")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissUpdateBanner) {
+                    Text("Позже")
                 }
             }
         )

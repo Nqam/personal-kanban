@@ -604,9 +604,12 @@ class TaskRepository @Inject constructor(
 
     suspend fun writeBackupToSafUri(uri: Uri): Result<Unit> = runCatching {
         val content = exportToJson()
-        context.contentResolver.openOutputStream(uri, "wt")?.use { out ->
-            out.write(content.toByteArray(Charsets.UTF_8))
-        } ?: error("Не удалось открыть файл резервной копии")
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        val out = runCatching {
+            context.contentResolver.openOutputStream(uri, "wt")
+        }.getOrNull() ?: context.contentResolver.openOutputStream(uri, "w")
+            ?: error("Не удалось открыть файл резервной копии для перезаписи")
+        out.use { it.write(bytes) }
         settingsDataStore.updateSyncState(
             SyncStatusType.SYNCED,
             lastSyncAt = System.currentTimeMillis()
