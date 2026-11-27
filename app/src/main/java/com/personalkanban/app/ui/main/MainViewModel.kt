@@ -27,6 +27,7 @@ import com.personalkanban.app.domain.model.TaskItem
 import com.personalkanban.app.domain.model.TaskPriority
 import com.personalkanban.app.domain.model.TaskStatus
 import com.personalkanban.app.domain.model.TaskViewTab
+import com.personalkanban.app.notification.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,7 +77,8 @@ class MainViewModel @Inject constructor(
     private val syncRepository: SyncRepository,
     private val settingsDataStore: SettingsDataStore,
     private val gitHubUpdateService: GitHubUpdateService,
-    private val googleDriveService: GoogleDriveService
+    private val googleDriveService: GoogleDriveService,
+    private val reminderScheduler: ReminderScheduler
 ) : ViewModel() {
 
     private val filterFlow = MutableStateFlow(TaskFilterState())
@@ -159,6 +161,7 @@ class MainViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             taskRepository.autoArchiveOldCompletedTasks()
+            reminderScheduler.rescheduleAll()
             val settings = settingsDataStore.getSettings()
             if (settings.googleAccountEmail != null) {
                 syncRepository.syncNow(createSnapshot = false)

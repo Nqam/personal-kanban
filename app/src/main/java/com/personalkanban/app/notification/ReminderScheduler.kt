@@ -1,13 +1,16 @@
 package com.personalkanban.app.notification
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
-import androidx.work.Data
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import androidx.work.WorkManager
 import com.personalkanban.app.data.local.SettingsDataStore
 import com.personalkanban.app.data.local.TaskDao
 import com.personalkanban.app.data.local.toDomain
+import com.personalkanban.app.domain.model.ReminderPresets
 import com.personalkanban.app.domain.model.TaskItem
 import com.personalkanban.app.domain.model.TaskStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,6 +25,9 @@ class ReminderScheduler @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val taskDao: TaskDao
 ) {
+    private val alarmManager: AlarmManager
+        get() = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
     suspend fun scheduleForTask(task: TaskItem) {
         cancelForTask(task.id)
         val settings = settingsDataStore.getSettings()
@@ -39,49 +45,35 @@ class ReminderScheduler @Inject constructor(
 
         intervals.forEach { offsetMinutes ->
             val triggerAt = dueAt - TimeUnit.MINUTES.toMillis(offsetMinutes.toLong())
-            val delayMs = triggerAt - now
-            if (delayMs > 0) {
-                val input = Data.Builder()
-                    .putString(ReminderWorker.KEY_TASK_ID, task.id)
-                    .putInt(ReminderWorker.KEY_OFFSET_MINUTES, offsetMinutes)
-                    .build()
-
-                val request = OneTimeWorkRequestBuilder<ReminderWorker>()
-                    .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
-                    .setInputData(input)
-                    .addTag(taskTag(task.id))
-                    .build()
-
-                workManager.enqueueUniqueWork(
-                    uniqueWorkName(task.id, offsetMinutes),
-                    ExistingWorkPolicy.REPLACE,
-                    request
-                )
+            if (triggerAt > now) {
+                scheduleAlarm(task.id, offsetMinutes, triggerAt)
             }
         }
     }
 
     fun scheduleSnooze(taskId: String, snoozeMinutes: Int = 30) {
-        val input = Data.Builder()
-            .putString(ReminderWorker.KEY_TASK_ID, taskId)
-            .putInt(ReminderWorker.KEY_OFFSET_MINUTES, 0)
-            .build()
-
-        val request = OneTimeWorkRequestBuilder<ReminderWorker>()
-            .setInitialDelay(snoozeMinutes.toLong(), TimeUnit.MINUTES)
-            .setInputData(input)
-            .addTag(taskTag(taskId))
-            .build()
-
-        workManager.enqueueUniqueWork(
-            "reminder_snooze_$taskId",
-            ExistingWorkPolicy.REPLACE,
-            request
-        )
+        val triggerAt = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(snoozeMinutes.toLong())
+        scheduleAlarm(taskId, offsetMinutes = 0, triggerAt = triggerAt)
     }
 
-    fun cancelForTask(taskId: String) {
-        workManager.cancelAllWorkByTag(taskTag(taskId))
+    suspend fun cancelForTask(taskId: String) {
+        // Cancel any legacy WorkManager tasks
+        workManager.cancelAllWorkByTag("reminder_task_$taskId")
+
+        val settings = settingsDataStore.getSettings()
+        val allOffsets = buildSet {
+            add(0)
+            addAll(ReminderPresets.defaultOptions.map { it.first })
+            addAll(settings.reminderIntervalsMinutes)
+            settings.customReminderMinutes?.let { if (it > 0) add(it) }
+        }
+        allOffsets.forEach { offset ->
+            val pending = buildAlarmPendingIntent(taskId, offset, PendingIntent.FLAG_NO_CREATE)
+            if (pending != null) {
+                alarmManager.cancel(pending)
+                pending.cancel()
+            }
+        }
     }
 
     suspend fun rescheduleAll() {
@@ -91,6 +83,27 @@ class ReminderScheduler @Inject constructor(
         }
     }
 
-    private fun taskTag(taskId: String) = "reminder_task_$taskId"
-    private fun uniqueWorkName(taskId: String, offsetMinutes: Int) = "reminder_${taskId}_$offsetMinutes"
+    private fun scheduleAlarm(taskId: String, offsetMinutes: Int, triggerAt: Long) {
+        val pending = buildAlarmPendingIntent(taskId, offsetMinutes, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
+        val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        if (canExact) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        } else {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        }
+    }
+
+    private fun buildAlarmPendingIntent(taskId: String, offsetMinutes: Int, flags: Int): PendingIntent? {
+        val intent = Intent(context, ReminderAlarmReceiver::class.java).apply {
+            action = ReminderAlarmReceiver.ACTION_REMINDER_ALARM
+            data = Uri.parse("taskflow://reminder/$taskId/$offsetMinutes")
+            putExtra(ReminderAlarmReceiver.EXTRA_TASK_ID, taskId)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            (taskId to offsetMinutes).hashCode(),
+            intent,
+            flags or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 }
