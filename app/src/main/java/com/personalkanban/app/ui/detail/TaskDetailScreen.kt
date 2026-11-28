@@ -416,6 +416,10 @@ fun TaskDetailScreen(
                                 epicName = epicName.takeIf { it.isNotBlank() }
                             )
                         )
+                        if (newComment.isNotBlank()) {
+                            viewModel.addComment(newComment)
+                            newComment = ""
+                        }
                         onBack()
                     }
                 },
@@ -613,6 +617,17 @@ fun TaskDetailScreen(
                     onValueChange = { newComment = it },
                     placeholder = { Text("Добавить комментарий...") },
                     shape = RoundedCornerShape(14.dp),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSend = {
+                            if (newComment.isNotBlank()) {
+                                viewModel.addComment(newComment)
+                                newComment = ""
+                            }
+                        }
+                    ),
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(

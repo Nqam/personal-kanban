@@ -1,10 +1,8 @@
 package com.personalkanban.app.data.local
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -36,10 +34,10 @@ interface TaskDao {
     @Query("SELECT COUNT(*) FROM tasks WHERE updatedAt > lastSyncedAt")
     suspend fun getUnsyncedCount(): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertTask(task: TaskEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertTasks(tasks: List<TaskEntity>)
 
     @Query("DELETE FROM tasks WHERE id = :id")
@@ -63,10 +61,10 @@ interface CommentDao {
     @Query("SELECT * FROM comments WHERE id = :id LIMIT 1")
     suspend fun getCommentById(id: String): CommentEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertComment(comment: CommentEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertComments(comments: List<CommentEntity>)
 }
 
@@ -81,10 +79,10 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE LOWER(name) = LOWER(:name) AND isDeleted = 0 LIMIT 1")
     suspend fun findByName(name: String): CustomerEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertCustomer(customer: CustomerEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertCustomers(customers: List<CustomerEntity>)
 }
 
@@ -99,10 +97,10 @@ interface EpicDao {
     @Query("SELECT * FROM epics WHERE LOWER(name) = LOWER(:name) AND isDeleted = 0 LIMIT 1")
     suspend fun findByName(name: String): EpicEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertEpic(epic: EpicEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertEpics(epics: List<EpicEntity>)
 }
 
@@ -114,7 +112,7 @@ interface SyncConflictDao {
     @Query("SELECT * FROM sync_conflicts WHERE resolved = 0")
     suspend fun getUnresolvedConflicts(): List<SyncConflictEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertConflicts(conflicts: List<SyncConflictEntity>)
 
     @Query("UPDATE sync_conflicts SET resolved = 1 WHERE id = :conflictId")
